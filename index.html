@@ -1377,6 +1377,9 @@ body:not([data-route="home"]) .footer { display: none; }
 .ms-waits .mw-total { order: 3; margin-left: 0; }
 .ms-waits .mw-wait { flex-direction: row; gap: 4px; }
 .ms-waits .mw-wait .tile { width: 34px; height: 48px; }
+/* 同じ種類の牌は、雀魂のように牌の表全体を薄い青で染める(縁の光だけだと小さい河の牌で見落とす) */
+.tile.same::after, .ms-river .tile.same::after, .ms-river .tile.same.tsumogiri::after { background: rgba(105, 195, 255, .45); }
+.tile.same { outline: 1.5px solid rgba(120, 210, 255, .95); filter: drop-shadow(0 0 4px rgba(80, 190, 255, .8)); }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
