@@ -1,5 +1,5 @@
-// 公開用(tools/make-pages.mjs が作る)。版: 1c037d21735b
-const CACHE = 'mahjong-app-1c037d21735b';
+// 公開用(tools/make-pages.mjs が作る)。版: 6d5705834f34
+const CACHE = 'mahjong-app-6d5705834f34';
 const FILES = ['./', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
