@@ -1342,6 +1342,41 @@ body:not([data-route="home"]) .footer { display: none; }
 /* 切替ボタン: ON は色付き、OFF は灰色で文字に線 */
 .ms-toolbtn.on:not(.full) { background: rgba(95,214,208,.22); }
 .ms-toolbtn.off { color: rgba(232,244,255,.45); border-color: rgba(255,255,255,.18); text-decoration: line-through; }
+
+/* ===== 手牌の選択・ドラ・同じ牌の光(人の要望 2026-10-02) ===== */
+/* 選んだ牌は少し浮かせる(もう1回押すと切る) */
+.ms-hand .tile.selected { transform: translateY(-18px); }
+@media (hover: hover) { .ms-hand .tile.selected:hover { transform: translateY(-18px); } }
+/* ドラは金色に光らせる(手牌・河・副露・待ち) */
+.tile.dora::before { box-shadow: inset 0 0 0 1px rgba(168, 148, 103, .55), inset 0 0 9px 2px rgba(255, 196, 40, .85); }
+.tile.dora { outline: 1.5px solid rgba(255, 200, 60, .9); outline-offset: -1px; }
+/* 選んでいる牌と同じ種類の牌(河・副露)は薄い青に光らせる */
+.tile.same::before { box-shadow: inset 0 0 0 1px rgba(168, 148, 103, .55), inset 0 0 12px 4px rgba(80, 190, 255, .9); }
+.tile.same { outline: 2px solid rgba(110, 205, 255, .95); outline-offset: 0; filter: drop-shadow(0 0 6px rgba(80, 190, 255, .9)); }
+.ms-river .tile.same.tsumogiri::after { background: none; }
+
+/* 待ちの表示(選んだ牌を切ると聴牌のとき)。手牌の上、中央寄り */
+.ms-waits { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(176px + 33.04px * var(--boost, 1));
+  z-index: 7; padding: 8px 14px 10px; border-radius: 14px; background: rgba(8, 14, 30, .86);
+  border: 1px solid var(--glass-line, rgba(140,230,225,.55)); box-shadow: 0 8px 24px rgba(0,0,0,.45); pointer-events: none;
+  font-size: calc(14px * var(--boost, 1)); white-space: nowrap; }
+.ms-waits.riichi { border-color: #ee6a5c; box-shadow: 0 0 0 1px rgba(238,106,92,.5), 0 8px 24px rgba(0,0,0,.45); }
+.ms-waits .mw-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: #cfe3d8; }
+.ms-waits .mw-head .tile { margin: 0 2px; }
+.ms-waits .mw-total { margin-left: 10px; color: #8ff0c4; font-size: 1.1em; }
+.ms-waits .mw-furiten { margin-left: 6px; padding: 1px 8px; border-radius: 8px; background: #b3261e; color: #fff; font-size: .85em; }
+.ms-waits .mw-row { display: flex; gap: 10px; justify-content: center; }
+.ms-waits .mw-wait { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ms-waits .mw-wait .tile { width: 40px; height: 56px; --edge: 4px; margin: 0 0 5px; }
+.ms-waits .mw-left { font-weight: 800; color: #e8f4ff; }
+.ms-waits .mw-wait.none { opacity: .45; }
+.ms-waits .mw-wait.none .mw-left { color: #ffc4a3; }
+/* 待ちの表示は1行に詰める(縦に積むと卓の中央に被った) */
+.ms-waits { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
+.ms-waits .mw-head { margin: 0; }
+.ms-waits .mw-total { order: 3; margin-left: 0; }
+.ms-waits .mw-wait { flex-direction: row; gap: 4px; }
+.ms-waits .mw-wait .tile { width: 34px; height: 48px; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16827,6 +16862,7 @@ const { formatDanger } = __m["src/core/danger.js"];
 const { getRules } = __m["src/core/rules.js"];
 const { evaluateDiscards, explainCandidate, pushFoldAdvice } = __m["src/core/evaluate.js"];
 const { kindToName } = __m["src/core/tiles.js"];
+const { shanten, waits } = __m["src/core/shanten.js"];
 const { formatScore, formatHanFu, formatYaku } = __m["src/core/score.js"];
 const { yakuInfo, hanText } = __m["src/data/yakuInfo.js"];
 const { el, tileEl, backTileEl } = __m["src/ui/tiles.js"];
@@ -16893,6 +16929,11 @@ function renderPractice(app) {
   let threatsNow = [];      // 描画中の他家の脅威(聴牌率・打点見込み)
   let flight = null;        // 再生中の他家の打牌 { seat, fromIndex, handSize, hasDrawn }
   let flightTimer = null;
+  // 手牌の選択(雀魂などと同じ操作。人の要望 2026-10-02):
+  // 1回タップで牌が少し浮き(選ぶ)、もう1回タップでその牌を切る。上へのスワイプでも切れる。
+  // 選んでいる間は、同じ種類の牌を河と副露で光らせ、その牌を切って聴牌なら待ちと残り枚数を出す
+  let selectedId = null;
+  let swipedAt = 0;
 
   if (!store.settings.speed) store.settings.speed = 'normal';
 
@@ -17154,6 +17195,7 @@ function renderPractice(app) {
   function advance(res, localEvents = []) {
     clearTimeout(timer); timer = null;
     prompt = res;
+    selectedId = null;
     current = null;
     if (res.type === 'step') {
       render([...localEvents, ...res.events]);
@@ -17256,6 +17298,16 @@ function renderPractice(app) {
   }
 
   /** 河(6枚×3段、リーチ牌は横向き、19枚目以降は3段目の右に続ける) */
+  /** ドラと、選んでいる牌と同じ種類の牌に付ける印(手牌・河・副露で共通) */
+  function markOf(tile) {
+    const kind = tile.kind ?? tile;
+    const out = [];
+    if (game.doraKinds().includes(kind) || tile.red) out.push('dora');
+    const sel = selectedId !== null ? game.state.seats[0].hand.find((t) => t.id === selectedId) : null;
+    if (sel && sel.kind === kind) out.push('same');
+    return out.join(' ');
+  }
+
   function riverEl(i, role) {
     const s = game.state.seats[i];
     const g = GEO[role].river;
@@ -17269,7 +17321,7 @@ function renderPractice(app) {
       // ツモ切りの牌を暗く出す(麻雀格闘倶楽部の見せ方)。手出しはそのまま。
       // 前は手出しに赤い点を付けていたが、小さくて読みにくかった(人の要望 2026-10-02)
       const mark = store.settings.tedashiMark !== false && d.tsumogiri ? 'tsumogiri' : '';
-      const cls = `${d.riichi ? 'riichi' : ''} ${d.called ? 'called-away' : ''} ${isLast ? 'latest' : ''} ${mark}`;
+      const cls = `${d.riichi ? 'riichi' : ''} ${d.called ? 'called-away' : ''} ${isLast ? 'latest' : ''} ${mark} ${markOf(d.tile)}`;
       const t = tileEl(d.tile, { className: cls, title: `${kindToName(d.tile.kind)} ${d.tsumogiri ? 'ツモ切り' : '手出し'}${d.riichi ? ' リーチ宣言牌' : ''}${d.called ? ' (鳴かれた)' : ''}` });
       if (d.riichi) {
         // 36×50 の牌を90°回すと 50×36。段の下端に揃える
@@ -17366,7 +17418,7 @@ function renderPractice(app) {
     const grp = el('div', { class: `ms-meld ${rot ? 'col' : 'row'}` });
     const called = m.called || (m.from !== undefined && m.from !== seat ? m.tiles[m.tiles.length - 1] : null);
     for (const t of m.tiles) {
-      const e = tileEl(t, { className: called && t.id === called.id ? 'called' : '' });
+      const e = tileEl(t, { className: `${called && t.id === called.id ? 'called' : ''} ${markOf(t)}` });
       const isCalled = called && t.id === called.id;
       // 横に並ぶ副露の鳴いた牌は、横倒しの牌が収まる枠に入れる。枠なしで回すと隣の牌に被った(人の指摘 2026-10-02)
       grp.appendChild(rot
@@ -17394,7 +17446,7 @@ function renderPractice(app) {
     const list = me.drawn ? [...sorted, me.drawn] : sorted;
     for (const t of list) {
       const canDiscard = acting && prompt.options.discardable.some((x) => x.id === t.id) && (!riichiMode || prompt.options.canRiichi.includes(t.kind));
-      const e = tileEl(t, { clickable: canDiscard, className: `${me.drawn && t.id === me.drawn.id ? 'drawn' : ''} ${acting && !canDiscard ? 'dim' : ''}` });
+      const e = tileEl(t, { clickable: canDiscard, className: `${me.drawn && t.id === me.drawn.id ? 'drawn' : ''} ${acting && !canDiscard ? 'dim' : ''} ${t.id === selectedId ? 'selected' : ''} ${t.red || game.doraKinds().includes(t.kind) ? 'dora' : ''}` });
       if (hints) {
         const c = hints.candidates.find((x) => x.kind === t.kind);
         // **候補が無くても段は出す。** 1枚だけ段が欠けると、上下の行が牌ごとに
@@ -17404,7 +17456,23 @@ function renderPractice(app) {
         e.appendChild(stack);
         if (c) e.title = `${kindToName(t.kind)}切り: ${c.shanten === 0 ? '聴牌' : c.shanten + '向聴'} 受け入れ${c.total}枚 放銃率${formatDanger(c.danger)}% 局収支${c.ev >= 0 ? '+' : ''}${c.ev}`;
       }
-      if (canDiscard) e.addEventListener('click', () => onDiscard(t));
+      if (canDiscard) {
+        // 1回目で選び、選んでいる牌をもう1回押すと切る
+        e.addEventListener('click', () => {
+          if (Date.now() - swipedAt < 400) return; // スワイプで切った直後の click は捨てる
+          if (selectedId === t.id) onDiscard(t);
+          else { selectedId = t.id; render(); }
+        });
+        // 上へスワイプで切る(30px 以上上へ動かして離したら)
+        e.addEventListener('pointerdown', (ev) => {
+          const y0 = ev.clientY;
+          const up = (ev2) => {
+            window.removeEventListener('pointerup', up);
+            if (y0 - ev2.clientY > 30) { swipedAt = Date.now(); onDiscard(t); }
+          };
+          window.addEventListener('pointerup', up);
+        });
+      }
       hand.appendChild(e);
     }
     // 自分の副露・抜き北
@@ -17440,6 +17508,12 @@ function renderPractice(app) {
       status.appendChild(badge);
     }
     zone.appendChild(status);
+    // 選んだ牌を切ると聴牌なら、待ちと残り枚数を牌の絵で出す(リーチの宣言牌を選ぶときも同じ)
+    const sel = acting && selectedId !== null ? me.hand.find((t) => t.id === selectedId) : null;
+    if (sel) {
+      const w = waitsAfter(sel);
+      if (w) zone.appendChild(waitPanel(sel, w));
+    }
 
 
     // アクション
@@ -17447,7 +17521,7 @@ function renderPractice(app) {
     if (acting) {
       const o = prompt.options;
       if (o.canTsumo) actions.appendChild(el('button', { class: 'act win', text: `ツモ ${formatScore(o.canTsumo)}`, onClick: () => doAction({ type: 'tsumo' }, [{ type: 'win', winners: [0], from: null }]) }));
-      if (o.canRiichi.length) actions.appendChild(el('button', { class: `act riichi ${riichiMode ? 'on' : ''}`, text: riichiMode ? 'リーチ: 牌を選択' : 'リーチ', onClick: () => { riichiMode = !riichiMode; render(); } }));
+      if (o.canRiichi.length) actions.appendChild(el('button', { class: `act riichi ${riichiMode ? 'on' : ''}`, text: riichiMode ? 'リーチ: 牌を選択' : 'リーチ', onClick: () => { riichiMode = !riichiMode; selectedId = null; render(); } }));
       for (const k of o.kans) actions.appendChild(el('button', { class: 'act call', text: `${k.type === 'ankan' ? '暗槓' : '加槓'} ${kindToName(k.kind)}`, onClick: () => doAction({ type: 'kan', kan: k }, [{ type: 'call', call: 'kan', seat: 0 }]) }));
       if (o.canKita) actions.appendChild(el('button', { class: 'act call', text: '北抜き', onClick: () => doAction({ type: 'kita' }, [{ type: 'kita', seat: 0 }]) }));
     } else if (prompt?.type === 'claim') {
@@ -17486,6 +17560,37 @@ function renderPractice(app) {
     }
     zone.appendChild(actions);
     return zone;
+  }
+
+  /** この牌を切ったときの待ち。聴牌にならなければ null。残り枚数は自分から見えていない枚数 */
+  function waitsAfter(tile) {
+    const me = game.state.seats[0];
+    const counts = game.handCounts(0);
+    counts[tile.kind]--;
+    if (shanten(counts, me.melds.length) !== 0) return null;
+    const visible = game.visibleCounts(0);
+    const ws = waits(counts, me.melds.length).map((k) => ({ kind: k, left: Math.max(0, 4 - visible[k]) }));
+    const furiten = ws.some((x) => x.kind === tile.kind || me.discards.some((d) => d.tile.kind === x.kind));
+    return { list: ws, total: ws.reduce((a, x) => a + x.left, 0), furiten };
+  }
+
+  function waitPanel(tile, w) {
+    const box = el('div', { class: `ms-waits ${riichiMode ? 'riichi' : ''}` });
+    box.appendChild(el('div', { class: 'mw-head' }, [
+      el('span', { text: riichiMode ? 'リーチ 打' : '打' }), tileEl(tile.kind, { size: 'small' }),
+      el('span', { text: ' で待ち' }),
+    ]));
+    const row = el('div', { class: 'mw-row' });
+    for (const x of w.list) {
+      row.appendChild(el('div', { class: `mw-wait ${x.left ? '' : 'none'}` }, [
+        tileEl(x.kind, { className: markOf(x.kind).includes('dora') ? 'dora' : '' }),
+        el('span', { class: 'mw-left', text: `${x.left}枚` }),
+      ]));
+    }
+    box.appendChild(row);
+    box.appendChild(el('b', { class: 'mw-total', text: `計${w.total}枚` }));
+    if (w.furiten) box.appendChild(el('span', { class: 'mw-furiten', text: 'フリテン' }));
+    return box;
   }
 
   function pushFoldPanel(pf) {
