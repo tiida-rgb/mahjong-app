@@ -1291,6 +1291,28 @@ body:not([data-route="home"]) .footer { display: none; }
 
 /* 途中の対局の「続きから」。新しく始めるより先に目に入るように、いちばん強い色にする */
 .route-practice .practice-setup .resume { background: var(--cyan); color: #06222a; border-color: var(--cyan); font-weight: 800; }
+
+/* ===== 副露の並び(人の指摘 2026-10-02: ポン・チーの重なり方が変) =====
+   鳴いた牌は横倒しの牌がちょうど入る枠(.meld-side)に入れ、他の牌と下端をそろえる。
+   厚みは河と同じく**画面の下**へ出す。回した牌は向き(--sx, --sy)を打ち消して影の段をずらす */
+.ms-meld .tile {
+  --sx: 0; --sy: 1;
+  box-shadow:
+    inset 0 0 0 1px var(--rim),
+    calc(var(--edge) * .55 * var(--sx)) calc(var(--edge) * .55 * var(--sy)) 0 var(--ivory-side),
+    calc(var(--edge) * var(--sx)) calc(var(--edge) * var(--sy)) 0 var(--amber),
+    calc((var(--edge) + 1.2px) * var(--sx)) calc((var(--edge) + 1.2px) * var(--sy)) 0 var(--amber-dark),
+    calc((var(--edge) + 2px) * var(--sx)) calc((var(--edge) + 2px) * var(--sy)) calc(var(--edge) * 1.6 + 2px) rgba(0, 0, 0, .42);
+}
+.ms-meld.row { align-items: flex-end; }
+.ms-meld.row .meld-side { position: relative; flex: 0 0 auto; width: 42px; height: 42px; }
+.ms-meld.row .meld-side .tile.called { position: absolute; left: 6px; top: 6px; margin: 0; transform: rotate(90deg); --sx: 1; --sy: 0; }
+.ms-my-melds .ms-meld.row .meld-side { width: 62px; height: 62px; }
+.ms-my-melds .ms-meld.row .meld-side .tile.called { left: 9px; top: 9px; transform: rotate(90deg); margin: 0; }
+/* 上家・下家の副露(縦に並ぶ)。牌は ±90° 回っているので厚みの向きも回す。鳴いた牌は回さない */
+.ms-meld.col .side-tile.r90 .tile { --sx: 1; --sy: 0; }
+.ms-meld.col .side-tile.r270 .tile { --sx: -1; --sy: 0; }
+.ms-meld.col .side-tile .tile.called { --sx: 0; --sy: 1; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17041,7 +17063,11 @@ function renderPractice(app) {
     const called = m.called || (m.from !== undefined && m.from !== seat ? m.tiles[m.tiles.length - 1] : null);
     for (const t of m.tiles) {
       const e = tileEl(t, { className: called && t.id === called.id ? 'called' : '' });
-      grp.appendChild(rot ? el('div', { class: 'side-tile' }, [Object.assign(e, { style: `transform:rotate(${rot}deg)` })]) : e);
+      const isCalled = called && t.id === called.id;
+      // 横に並ぶ副露の鳴いた牌は、横倒しの牌が収まる枠に入れる。枠なしで回すと隣の牌に被った(人の指摘 2026-10-02)
+      grp.appendChild(rot
+        ? el('div', { class: `side-tile ${rot > 0 ? 'r90' : 'r270'}` }, [Object.assign(e, { style: `transform:rotate(${rot}deg)` })])
+        : isCalled ? el('div', { class: 'meld-side' }, [e]) : e);
     }
     return grp;
   }
