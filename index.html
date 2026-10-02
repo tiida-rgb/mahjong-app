@@ -1288,6 +1288,9 @@ body:not([data-route="home"]) .footer { display: none; }
 .ca-chip .ca-bar div { height: 100%; background: #3fcf9a; }
 .ca-chip .ca-note { font-size: .8em; color: #ffc4a3; margin-top: 2px; }
 .ca-chip.ai { color: #b9eeea; text-align: center; font-size: calc(12px * var(--boost, 1)); }
+
+/* 途中の対局の「続きから」。新しく始めるより先に目に入るように、いちばん強い色にする */
+.route-practice .practice-setup .resume { background: var(--cyan); color: #06222a; border-color: var(--cyan); font-weight: 800; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16549,6 +16552,10 @@ const GEO = {
   right: { river: { cx: 827, cy: 326, rot: 270 }, callout: [980, 326], hand: { x: 1206, y: 112, dir: 'col', rot: -90 }, label: { x: 912, y: 112 } },
 };
 
+// 途中の対局。メニューやロビーへ移っても捨てずに持っておき、実戦を開き直したら続きから打てるようにする
+// (人の要望 2026-10-02)。アプリを閉じる・再読み込みすると消える(端末には保存しない)
+let saved = null;
+
 function renderPractice(app) {
   let game = null;
   let ruleId = 'mleague';
@@ -16572,7 +16579,12 @@ function renderPractice(app) {
   const setup = el('div', { class: 'card practice-setup' });
   // 実戦の画面は**対局だけ**にする(人の要望 2026-10-02)。最初は設定だけを出し、
   // 対局開始で卓を全画面に開く。卓の「メニュー」で設定に戻り、ここから続きへ戻れる
-  const resumeBtn = el('button', { class: 'resume', text: '対局に戻る', hidden: true, onClick: () => enterFull() });
+  // 途中の対局があるときは「続きから」を先頭・強い色にし、こちらは「最初から」に下げる(押すと今の対局は捨てる)
+  const startBtn = el('button', { class: 'primary', text: '対局開始', onClick: () => {
+    if (game && !game.state.gameOver && !confirm('今の対局を終えて、最初から始めますか?')) return;
+    start();
+  } });
+  const resumeBtn = el('button', { class: 'resume', text: '対局に戻る', hidden: true, onClick: () => resume() });
   const brand = document.querySelector('.topbar .brand');
   if (brand) brand.textContent = '実戦(AI対局)';
   // ルールと速さは選択肢が少ないので、畳まずに全部見せる(src/ui/controls.js)
@@ -16625,7 +16637,7 @@ function renderPractice(app) {
   ]));
   setup.appendChild(speedSel);
   setup.appendChild(el('div', { class: 'row', style: 'margin-top:.6rem' }, [
-    el('button', { class: 'primary', text: '対局開始', onClick: () => start() }),
+    startBtn,
     resumeBtn,
   ]));
   setup.appendChild(genNote);
@@ -16702,6 +16714,11 @@ function renderPractice(app) {
     // 全画面でないときは卓を出さない(設定だけの画面)。続きがあれば「対局に戻る」
     table.classList.toggle('ms-offpage', !isFull());
     resumeBtn.hidden = !game || isFull() || !!game?.state?.gameOver;
+    if (game) resumeBtn.textContent = `続きから(${game.kyokuName()})`;
+    const midGame = !!game && !game.state.gameOver;
+    startBtn.textContent = midGame ? '最初から' : '対局開始';
+    startBtn.classList.toggle('primary', !midGame);
+    if (midGame && startBtn.parentNode) startBtn.before(resumeBtn);
     drawToolbar();
     // 全画面の切り替え直後は、まだ新しい大きさが反映されていないことがある
     fit();
@@ -17382,7 +17399,6 @@ function renderPractice(app) {
     const panel = el('div', { class: 'chip-panel wide', hidden: true }, [
       t,
       el('p', { class: 'muted small', text: `${r.fu}符${r.han}翻 → 基本点 ${r.base}。${r.isDealer ? '親' : '子'}の${r.isTsumo ? 'ツモ' : 'ロン'}なのでこの支払いになります。` }),
-      el('a', { class: 'btn small-btn', href: '#/score', text: '符の作り方と早見表' }),
     ]);
     btn.addEventListener('click', () => {
       const open = panel.hidden;
@@ -17505,9 +17521,22 @@ function renderPractice(app) {
     if (btn) { e.preventDefault(); btn.click(); }
   };
   window.addEventListener('keydown', onKey);
+
+  /** 続きから。他家の番の途中で離れていたら、止まっていた進行を動かし直す */
+  function resume() {
+    if (!isFull()) enterFull();
+    if (prompt?.type === 'step' && !timer) advance(game.proceed({ step: true }));
+    else render();
+  }
+  if (saved) {
+    ({ game, ruleId, opponent, gradeCount, reviewLog, kyokuReview, lastAnalysis, prompt } = saved);
+    saved = null;
+    afterFullChange();
+  }
   render();
   return () => {
-    clearTimeout(timer);
+    clearTimeout(timer); timer = null;
+    if (game && !game.state.gameOver) saved = { game, ruleId, opponent, gradeCount, reviewLog, kyokuReview, lastAnalysis, prompt };
     // 全画面のまま別の画面へ行くと、卓が消えたのに画面が覆われたままになる
     if (fullMode) exitFull();
     document.removeEventListener('fullscreenchange', onFullChange);
