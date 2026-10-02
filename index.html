@@ -358,7 +358,7 @@ tr.muted-row td { color: var(--muted); background: #faf9f5; }
 /* 奥へ傾けた卓の面。雀魂のように手前が大きく奥が小さい台形に見せる。
    傾けるのは河・他家の手牌・中央だけで、自分の手牌・数字・ボタンは .ms-stage に平らに置く */
 .ms-field { position: absolute; inset: 0; transform-origin: 50% 56%;
-  transform: perspective(1500px) rotateX(24deg);
+  transform: perspective(1300px) rotateX(30deg);
   background: radial-gradient(ellipse at 50% 55%, #3f8a62 0%, #2f6e4c 55%, #245a3d 100%);
   border: 10px solid #6b3f22; border-radius: 18px;
   box-shadow: inset 0 0 0 2px #8a5a35, 0 18px 30px rgba(0,0,0,.55); }
@@ -439,7 +439,8 @@ tr.muted-row td { color: var(--muted); background: #faf9f5; }
 .ms-badge.grade.best { background: #1baf7a; } .ms-badge.grade.ok { background: #2a78d6; } .ms-badge.grade.meh { background: #eb6834; } .ms-badge.grade.bad { background: #e34948; }
 
 /* 自分 */
-.ms-hand { position: absolute; left: 150px; bottom: 12px; display: flex; align-items: flex-end; }
+.ms-hand { position: absolute; left: 150px; bottom: 22px; display: flex; align-items: flex-end; }
+/* 下は手牌の厚み(--edge 11px)と影のぶん空ける */
 /* 自分の手牌。**box-shadow を上書きしない**(厚みが消える)。--edge で持たせる */
 /* 76×106。66×92 ではスマホで押しにくかった(人の要望 2026-10-02)。14枚 + ツモ牌の間で 1082px */
 .ms-hand .tile { width: 76px; height: 106px; --edge: 5px; margin: 0; }
@@ -457,7 +458,7 @@ tr.muted-row td { color: var(--muted); background: #faf9f5; }
    段の高さ = 2段 x 1.18em x 14px x boost。手牌の下端からの距離(12+106+3)に足す。
    さらに牌を浮かせたとき(10px)と行の端数のぶん 12px 空ける。**8px では浮いた牌の数字と被った** */
 .ms-status { position: absolute; left: 152px;
-  bottom: calc(133px + 33.04px * var(--boost, 1));
+  bottom: calc(143px + 33.04px * var(--boost, 1));
   display: flex; gap: 8px; align-items: center; font-size: calc(14px * var(--boost, 1)); }
 /* 表示の切替は卓の外(.ms-toolbar)。卓の中に置くと --boost で広がって手牌に被る */
 /* 対局が始まったら設定は畳む。卓に画面を渡す(ツールバーの「対局設定」で開く) */
@@ -1078,6 +1079,71 @@ body:not([data-route="home"]) .footer { display: none; }
 .bd-notes li.near { color: #ffc4a3; } .bd-notes li.dora { color: #a9ccff; }
 .chip-panel { background: rgba(95,214,208,.08); }
 .chip { background: rgba(255,255,255,.06); color: var(--ink); border-color: var(--line); }
+
+/* ===== 牌の立体感(人の要望 2026-10-02: 本物に近い質感に) =====
+   実物の牌は「白い表の層 + 色の付いた裏の層」の2層でできていて、厚みを見ると
+   白と琥珀の2色が重なって見える。影は卓に落ちる。それを box-shadow の段で描く。
+   --edge = 厚み全体。白い層はその 55%、残りが琥珀 */
+.tile {
+  --ivory-side: #efe6cc; --ivory-dark: #d9cba3;
+  --amber: #e39a3c; --amber-dark: #a8621a;
+  box-shadow:
+    inset 0 0 0 1px var(--rim),
+    inset 0 -2px 3px rgba(150, 125, 70, .25),
+    0 calc(var(--edge) * .55) 0 var(--ivory-side),
+    0 calc(var(--edge) * .55 + .6px) 0 var(--ivory-dark),
+    0 var(--edge) 0 var(--amber),
+    0 calc(var(--edge) + 1.2px) 0 var(--amber-dark),
+    0 calc(var(--edge) + 2px) calc(var(--edge) * 1.6 + 2px) rgba(0, 0, 0, .42),
+    0 calc(var(--edge) * .5) calc(var(--edge) * 3) rgba(0, 0, 0, .18);
+}
+/* 自分の手牌は立てて見せる。厚みを大きく、表は少し上から光が当たる */
+.ms-hand .tile { --edge: 11px; margin-bottom: 0; }
+.ms-hand .tile::after { background: linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 22%), linear-gradient(90deg, rgba(0,0,0,.05), rgba(0,0,0,0) 12%, rgba(0,0,0,0) 88%, rgba(0,0,0,.06)); }
+/* 河の牌(卓に寝ている)。傾けた卓の上なので、手前の側面が厚みとして見える */
+.ms-river .tile { --edge: 5px; }
+.ms-dora .tile { --edge: 4px; }
+.ms-my-melds .ms-meld .tile { --edge: 7px; }
+.ms-meld.row .tile { --edge: 5px; }
+/* 他家の手牌(立っている牌を後ろから見る)。琥珀の裏 + 上に白い層の縁 */
+.tile.back {
+  box-shadow:
+    inset 0 0 0 1px var(--rim),
+    0 calc(var(--edge) * -.55) 0 #f2e9d0,
+    0 calc(var(--edge) * -.55 - .6px) 0 #d6c79d,
+    0 calc(var(--edge) * .5) 0 var(--amber-dark),
+    0 calc(var(--edge) + 2px) calc(var(--edge) * 1.6 + 2px) rgba(0, 0, 0, .45);
+}
+.ms-hidden .tile.back { --edge: 8px; margin-top: 5px; }
+.ms-hidden.row .tile { width: 32px; height: 46px; }
+/* 押し引き: 右の下寄りへ(上家・下家の名前を上に上げた代わり)。文字を大きく。
+   根拠を開いても下のボタンに届かないよう、根拠の中だけスクロールさせる(人の要望 2026-10-02) */
+.ms-pf { right: 96px; top: 236px; width: 286px; padding: 10px 14px; background: rgba(8, 14, 30, .72);
+  border: 1px solid var(--glass-line, rgba(140,230,225,.55)); backdrop-filter: blur(6px); font-size: calc(15px * var(--boost, 1)); }
+.ms-pf .head b { font-size: calc(15px * var(--boost, 1)); }
+.ms-pf .verdict { font-size: calc(22px * var(--boost, 1)); }
+.ms-pf .nums { font-size: calc(16px * var(--boost, 1)); }
+.ms-pf summary { font-size: calc(14px * var(--boost, 1)); color: #b9eeea; }
+.ms-pf .factors { font-size: calc(14px * var(--boost, 1)); line-height: 1.45; max-height: 190px; overflow-y: auto; }
+/* 中央の点数。上下(対面・自分)が小さかった */
+.ms-wind.top .sc, .ms-wind.bottom .sc { font-size: calc(21px * var(--boost, 1)); }
+.ms-wind.top .w, .ms-wind.bottom .w { width: 28px; height: 28px; font-size: 17px; }
+.ms-wind.left .sc, .ms-wind.right .sc { font-size: calc(14px * var(--boost, 1)); }
+/* 小さい画面(--boost が大きい)で押し引きが手牌まで伸びないよう、全体の高さに上限を付け、
+   根拠の中だけスクロールさせる。見出しは折り返さない */
+.ms-pf { right: 64px; top: 226px; width: 330px; display: flex; flex-direction: column; max-height: 300px; }
+.ms-pf .head { flex: 0 0 auto; white-space: nowrap; gap: 8px; }
+.ms-pf details { min-height: 0; display: flex; flex-direction: column; }
+.ms-pf details[open] { flex: 1 1 auto; overflow: hidden; }
+.ms-pf .factors { max-height: none; flex: 1 1 auto; overflow-y: auto; }
+/* 中央の点数は大きくするが、中央の枠(200px)からはみ出さない上限を付ける */
+.ms-wind.top .sc, .ms-wind.bottom .sc { font-size: min(calc(20px * var(--boost, 1)), 25px); }
+.ms-info .kyoku { font-size: 26px; }
+.ms-pf { right: 112px; width: 306px; }
+.ms-info .kyoku { font-size: 24px; }
+.ms-info .left { font-size: min(calc(16px * var(--boost, 1)), 21px); margin-top: 0; }
+/* 名前の段は折り返さない(リーチ・副露が付いて2段になると、下の席の札に被る) */
+.ms-opp .row1, .ms-opp .row2 { flex-wrap: nowrap; white-space: nowrap; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15988,9 +16054,9 @@ const GEO = {
   // 中央パネル(200×200)の中心は (640, 326)。河の中心は縁から 12px 離す: 326 ± 187 = 139 / 513, 640 ± 187 = 453 / 827
   // (手牌の上のヒント数字と自分の河が重ならないよう、卓の中心は少し上に寄せている)
   bottom: { river: { cx: 640, cy: 513, rot: 0 }, callout: [640, 540] },
-  top: { river: { cx: 640, cy: 139, rot: 180 }, callout: [640, 140], hand: { x: 445, y: 12, dir: 'row' }, label: { x: 220, y: 96 } },
-  left: { river: { cx: 453, cy: 326, rot: 90 }, callout: [300, 326], hand: { x: 12, y: 120, dir: 'col', rot: 90 }, label: { x: 104, y: 280 } },
-  right: { river: { cx: 827, cy: 326, rot: 270 }, callout: [980, 326], hand: { x: 1226, y: 120, dir: 'col', rot: -90 }, label: { x: 912, y: 280 } },
+  top: { river: { cx: 640, cy: 139, rot: 180 }, callout: [640, 140], hand: { x: 445, y: 12, dir: 'row' }, label: { x: 900, y: 6 } },
+  left: { river: { cx: 453, cy: 326, rot: 90 }, callout: [300, 326], hand: { x: 12, y: 120, dir: 'col', rot: 90 }, label: { x: 104, y: 112 } },
+  right: { river: { cx: 827, cy: 326, rot: 270 }, callout: [980, 326], hand: { x: 1226, y: 120, dir: 'col', rot: -90 }, label: { x: 912, y: 112 } },
 };
 
 function renderPractice(app) {
@@ -16204,11 +16270,14 @@ function renderPractice(app) {
     const w = wrap.clientWidth || STAGE.w;
     let avail;
     if (isFull()) {
-      // 全画面では「まとまりの高さ − ツールバー」がそのまま卓に使える。
-      // 通常時と同じ「卓より上を全部引く」で計算すると、api の全画面では
-      // 位置の基準がずれて高さが合わない
-      const box = table.clientHeight || window.innerHeight;
-      avail = Math.max(240, box - toolbar.offsetHeight - 6);
+      // 全画面では「画面の高さ − ツールバー」がそのまま卓に使える。
+      // **高さは実際の画面から取る。** ホーム画面に追加した iPhone では、要素の高さ(100vh 由来)が
+      // 縦のときの値のまま残り、下が切れた(人の報告 2026-10-02)
+      const box = Math.round(window.visualViewport?.height || window.innerHeight) || table.clientHeight;
+      // ノッチ・ホームバーの余白(safe-area の padding)も引く。引かないとそのぶん下が切れる
+      const cs = getComputedStyle(table);
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      avail = Math.max(240, box - toolbar.offsetHeight - pad - 6);
     } else {
       // **卓より上にあるものを全部引く。** ヘッダーだけを引いていたので、
       // 設定カードが残る PC では卓が画面の下に押し出され、自分の手牌を見るのに
@@ -16223,7 +16292,10 @@ function renderPractice(app) {
     stage.style.left = `${Math.max(0, (w - STAGE.w * s) / 2)}px`;
     wrap.style.height = `${Math.round(STAGE.h * s)}px`;
   }
-  window.addEventListener('resize', fit);
+  const refit = () => { fit(); setTimeout(fit, 150); setTimeout(fit, 450); };
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', refit);
+  window.visualViewport?.addEventListener('resize', refit);
   fit();
 
   function start() {
@@ -16544,7 +16616,9 @@ function renderPractice(app) {
       el('span', {}, ['攻め ', tileEl(pf.pushTile, {})]),
       pf.sameTile ? el('span', { class: 'muted', text: '= 守り(同じ牌)' }) : el('span', {}, ['守り ', tileEl(pf.foldTile, {})]),
     ]));
-    const det = el('details', {}, [el('summary', { text: '根拠' }), el('div', { class: 'factors' }, pf.factors.map((f) => el('div', { class: f.side, text: f.text })))]);
+    // 根拠の開け閉めは**押したときだけ変わる**。手番のたびに描き直して閉じていた(人の報告 2026-10-02)
+    const det = el('details', { open: store.settings.pfReasonsOpen === true }, [el('summary', { text: '根拠' }), el('div', { class: 'factors' }, pf.factors.map((f) => el('div', { class: f.side, text: f.text })))]);
+    det.addEventListener('toggle', () => { store.settings.pfReasonsOpen = det.open; persist(); });
     box.appendChild(det);
     return box;
   }
@@ -16845,7 +16919,9 @@ function renderPractice(app) {
     document.removeEventListener('fullscreenchange', onFullChange);
     document.removeEventListener('webkitfullscreenchange', onFullChange);
     window.removeEventListener('keydown', onKey);
-    window.removeEventListener('resize', fit);
+    window.removeEventListener('resize', refit);
+    window.removeEventListener('orientationchange', refit);
+    window.visualViewport?.removeEventListener('resize', refit);
     document.querySelectorAll('.modal-bg').forEach((m) => m.remove());
   };
 }
