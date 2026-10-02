@@ -1,0 +1,46 @@
+{
+  "name": "麻雀プロ育成トレーナー",
+  "short_name": "麻雀プロ育成",
+  "description": "麻雀中級者がプロ試験合格を目指すための練習アプリ。何切る・実戦(Mリーグルール/関西三麻)・筆記ドリル・成績比較。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#f4f1ea",
+  "theme_color": "#1d2a24",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "何切る",
+      "url": "./#/nanikiru"
+    },
+    {
+      "name": "実戦",
+      "url": "./#/practice"
+    },
+    {
+      "name": "筆記ドリル",
+      "url": "./#/drill/score"
+    }
+  ]
+}
