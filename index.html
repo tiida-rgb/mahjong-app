@@ -19988,13 +19988,50 @@ function reportFields({ kind, text, user, replyTo, screen, now, size, standalone
   };
 }
 
-async function send(fields, shot) {
+/** 窓口の返事を分類する。純粋関数(テスト対象) */
+function classifyReply(ok, j) {
+  if (ok && (j?.success === true || j?.success === 'true')) return { ok: true };
+  const msg = String(j?.message || '');
+  // 最初の1通は「有効化が必要」で返る(受け取る側に Activate のメールが届く)
+  if (/activat/i.test(msg)) return { ok: false, kind: 'activation', msg };
+  return { ok: false, kind: 'other', msg };
+}
+
+async function post(fields, shot) {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.append(k, v);
   if (shot) fd.append('attachment', await (await fetch(shot)).blob(), 'screenshot.jpg');
   const r = await fetch(`https://formsubmit.co/ajax/${REPORT_TO}`, { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || !(j.success === true || j.success === 'true')) throw new Error(j.message || `status ${r.status}`);
+  return classifyReply(r.ok, j);
+}
+
+/** 送る。スクショ付きで断られたら(有効化待ち以外)、スクショなしで送り直す */
+async function send(fields, shot) {
+  let res;
+  try { res = await post(fields, shot); } catch (e) { return { ok: false, kind: 'network', msg: String(e?.message || e) }; }
+  if (!res.ok && res.kind === 'other' && shot) {
+    try {
+      const r2 = await post({ ...fields, スクショ: '添付できませんでした' }, null);
+      if (r2.ok) return r2;
+    } catch (e) { /* 下で最初の失敗を返す */ }
+  }
+  return res;
+}
+
+// 送れなかった報告は端末に取っておき、次にアプリを開いたときに送り直す(最大5件。スクショは重いので外す)
+const QUEUE_KEY = 'mahjong-report-queue';
+function readQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; } }
+function writeQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-5))); } catch (e) { /* 入らなければ諦める */ } }
+async function flushQueue() {
+  const q = readQueue();
+  if (!q.length) return;
+  const left = [];
+  for (const f of q) {
+    const r = await send(f, null);
+    if (!r.ok) left.push(f);
+  }
+  writeQueue(left);
 }
 
 let opening = false;
@@ -20033,16 +20070,22 @@ async function openReport() {
       ua: navigator.userAgent,
     });
     sendBtn.disabled = true; status.textContent = '送信中…'; status.className = 'bug-status';
-    try {
-      await send(fields, shot);
+    const r = await send(fields, shot);
+    if (r.ok) {
       status.textContent = '送りました。ありがとうございます';
       status.className = 'bug-status ok';
       setTimeout(close, 1400);
-    } catch (e) {
-      status.textContent = '送れませんでした。通信を確かめて、もう一度押してください';
-      status.className = 'bug-status err';
-      sendBtn.disabled = false;
+      return;
     }
+    // 送れなかった分は取っておき、あとで自動で送り直す(スクショは外す)
+    writeQueue([...readQueue(), { ...fields, スクショ: '(送り直しのため添付なし)' }]);
+    status.className = 'bug-status err';
+    status.textContent = r.kind === 'activation'
+      ? '受け取り窓口の有効化待ちです。この報告は端末に取っておき、有効化のあとに自動で送ります'
+      : r.kind === 'network'
+        ? '通信できませんでした。この報告は端末に取っておき、次に開いたときに送り直します'
+        : `送れませんでした(${r.msg || '理由不明'})。端末に取っておき、あとで送り直します`;
+    sendBtn.disabled = false;
   });
 
   const pop = el('div', { class: 'rv-pop bug-pop', role: 'dialog', 'aria-label': 'バグ報告・改善要望' }, [
@@ -20061,6 +20104,8 @@ async function openReport() {
 
 /** 3回タップを見張る。同じ場所(40px 以内)を1秒以内に3回 */
 function initReport() {
+  // 前に送れなかった報告があれば、少し待ってから送り直す
+  setTimeout(() => { flushQueue().catch(() => {}); }, 4000);
   let taps = [];
   document.addEventListener('pointerdown', (e) => {
     if (e.target.closest?.('.bug-bg')) return;
@@ -20071,7 +20116,7 @@ function initReport() {
   }, true);
 }
 
-return { REPORT_TO, SUBJECT_TAG, reportSubject, reportFields, initReport };
+return { REPORT_TO, SUBJECT_TAG, reportSubject, reportFields, classifyReply, initReport };
 })();
 
 __m["src/ui/app.js"] = (function () {
