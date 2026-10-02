@@ -1407,7 +1407,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <main id="app"></main>
 <footer class="footer">評価に使う基準値は <a href="#/data">データ集</a> にまとめています。数値は2026年9月時点の当アプリ独自の推定を含みます。</footer>
 <script>
-// 95 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
+// 97 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
 // 元のソースは src/ 以下を参照。
 (function () {
   'use strict';
@@ -2036,6 +2036,15 @@ async function signOut() {
 }
 
 /**
+ * バグ報告・改善要望を Firestore の reports に1件足す(src/ui/report.js から)。
+ * ログインしていなくても書ける(規則で「足すだけ・読めない」にしてある)。読むのと消すのは CS 役のアカウントだけ
+ */
+async function saveReport(doc) {
+  if (!fb) throw new Error('no-cloud');
+  await fb.F.addDoc(fb.F.collection(fb.db, 'reports'), { ...doc, createdAt: fb.F.serverTimestamp() });
+}
+
+/**
  * ログイン中の人の保存先。sync.js が使う形(get / set / onSnapshot)にそろえる。
  * 中身は文字列で置き、取り出すときに戻す。
  */
@@ -2064,7 +2073,7 @@ function firestoreError(e) {
   return { code: code || 'unknown' };
 }
 
-return { authState, onAuthChange, cloudReady, cloudEnabled, initCloud, signIn, signOut, userDoc, firestoreError };
+return { FIREBASE_CONFIG, authState, onAuthChange, cloudReady, cloudEnabled, initCloud, signIn, signOut, saveReport, userDoc, firestoreError };
 })();
 
 __m["src/ui/sync.js"] = (function () {
@@ -4662,6 +4671,641 @@ function hanFixOf(counts, melds, ctx, table, w) {
 return { CELLS, hanCellOf, hanFixOf };
 })();
 
+__m["src/core/yaku.js"] = (function () {
+// 役判定・符計算
+const { isHonor, isTerminal, isYaochu, isSimple, suitOf, numOf, isWind, isDragon, kindToName } = __m["src/core/tiles.js"];
+/**
+ * 手牌構造:
+ * {
+ *   closed: kind[]           // 門前部分(和了牌を含む)
+ *   melds: [{type:'chi'|'pon'|'ankan'|'minkan'|'kakan', kind, tiles: kind[]}]
+ *   winTile: kind
+ *   isTsumo, isRiichi, isDoubleRiichi, isIppatsu, isHaitei, isHoutei, isRinshan, isChankan, isTenhou, isChiihou
+ *   seatWind: kind(27..30), roundWind: kind
+ *   doraKinds: kind[] (表ドラ・槓ドラ), uraDoraKinds: kind[], redCount, kitaCount
+ * }
+ */
+
+function countsOf(kinds) {
+  const c = new Array(34).fill(0);
+  for (const k of kinds) c[k]++;
+  return c;
+}
+
+/** 門前部分を 面子+雀頭 に分解する全パターン列挙 */
+function decompose(closedKinds) {
+  const counts = countsOf(closedKinds);
+  const results = [];
+  const mentsu = [];
+  function dfs(i, pair) {
+    while (i < 34 && counts[i] === 0) i++;
+    if (i === 34) {
+      if (pair !== null) results.push({ pair, mentsu: mentsu.map((m) => ({ ...m })) });
+      return;
+    }
+    if (counts[i] >= 3) {
+      counts[i] -= 3;
+      mentsu.push({ type: 'koutsu', kind: i, open: false });
+      dfs(i, pair);
+      mentsu.pop();
+      counts[i] += 3;
+    }
+    if (i < 27 && i % 9 <= 6 && counts[i + 1] > 0 && counts[i + 2] > 0) {
+      counts[i]--; counts[i + 1]--; counts[i + 2]--;
+      mentsu.push({ type: 'shuntsu', kind: i, open: false });
+      dfs(i, pair);
+      mentsu.pop();
+      counts[i]++; counts[i + 1]++; counts[i + 2]++;
+    }
+    if (pair === null && counts[i] >= 2) {
+      counts[i] -= 2;
+      dfs(i, i);
+      counts[i] += 2;
+    }
+  }
+  dfs(0, null);
+  return results;
+}
+
+function isChiitoiShape(closedKinds, melds) {
+  if (melds.length > 0 || closedKinds.length !== 14) return false;
+  const c = countsOf(closedKinds);
+  let pairs = 0;
+  for (let k = 0; k < 34; k++) {
+    if (c[k] === 2) pairs++;
+    else if (c[k] !== 0) return false;
+  }
+  return pairs === 7;
+}
+
+const YAOCHU_KINDS = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
+
+function isKokushiShape(closedKinds, melds) {
+  if (melds.length > 0 || closedKinds.length !== 14) return false;
+  const c = countsOf(closedKinds);
+  let pairFound = false;
+  for (const k of YAOCHU_KINDS) {
+    if (c[k] === 0) return false;
+    if (c[k] === 2) pairFound = true;
+    if (c[k] > 2) return false;
+  }
+  return pairFound;
+}
+
+function isChuurenShape(closedKinds, melds) {
+  if (melds.length > 0 || closedKinds.length !== 14) return false;
+  const suit = suitOf(closedKinds[0]);
+  if (suit === 'z') return false;
+  if (!closedKinds.every((k) => suitOf(k) === suit)) return false;
+  const c = countsOf(closedKinds);
+  const base = closedKinds[0] - (closedKinds[0] % 9);
+  const need = [3, 1, 1, 1, 1, 1, 1, 1, 3];
+  let extra = -1;
+  for (let i = 0; i < 9; i++) {
+    const d = c[base + i] - need[i];
+    if (d < 0 || d > 1) return false;
+    if (d === 1) { if (extra !== -1) return false; extra = base + i; }
+  }
+  return extra !== -1 ? { extra } : false;
+}
+
+/**
+ * 符の表。**画面の説明もここを読む**(src/ui/views/score.js)。
+ * 説明を別に書くと、計算を直したときに片方だけ古くなり、
+ * 「表のとおりに足しても合わない」という一番たちの悪いずれ方をする。
+ */
+const FU_TABLE = {
+  base: 20,          // 副底。どの和了にも付く
+  menzenRon: 10,     // 門前でロン
+  tsumo: 2,          // ツモ
+  wait: 2,           // 嵌張・辺張・単騎
+  pairDragon: 2,     // 雀頭が三元牌
+  pairWind: 2,       // 雀頭が自風か場風(連風牌は rules.doubleWindPairFu)
+  chiitoi: 25,       // 七対子は固定
+  pinfuTsumo: 20,    // 平和ツモは一律
+  pinfuRon: 30,      // 平和ロン(副底20+門前ロン10)
+  // 面子。[中張, 幺九] × [明, 暗]
+  koutsu: { simple: { open: 2, closed: 4 }, yaochu: { open: 4, closed: 8 } },
+  kantsu: { simple: { open: 8, closed: 16 }, yaochu: { open: 16, closed: 32 } },
+};
+
+/** 面子の符 */
+function mentsuFu(m) {
+  if (m.type === 'shuntsu') return 0;
+  const t = FU_TABLE[m.type === 'kantsu' ? 'kantsu' : 'koutsu'];
+  return t[isYaochu(m.kind) ? 'yaochu' : 'simple'][m.open ? 'open' : 'closed'];
+}
+
+// 待ちの呼び名。シャンポンは**カタカナで書く。** 漢字表記に使う字の片方は
+// 日本語フォントに入っていない中国語専用の字で、そこだけ字形が変わる
+// (tools/make-font.sh が弾いた。この注意書き自体にもその字を書けない)
+const WAIT_LABEL = { kanchan: '嵌張', penchan: '辺張', tanki: '単騎', ryanmen: '両面', shanpon: 'シャンポン' };
+
+/** 符の内訳に出す面子の名前。
+ *  **どの牌の面子かを書く。** 「中張牌の暗刻 +4符」が2行並ぶと、
+ *  手牌のどれを指しているのか分からず、自分で検算できない。 */
+function mentsuFuLabel(m) {
+  const open = m.open ? '明' : '暗';
+  return `${kindToName(m.kind)} の${open}${m.type === 'kantsu' ? '槓' : '刻'}`;
+}
+
+function mentsuFuNote(m) {
+  const base = isYaochu(m.kind) ? '1・9・字牌なので4符' : '2〜8なので2符';
+  const k = m.type === 'kantsu' ? '槓子はその4倍' : '刻子はそのまま';
+  const o = m.open ? '鳴いているので倍にしない' : '暗(鳴いていない)なのでさらに2倍';
+  return `${base}、${k}、${o}`;
+}
+
+function windName(kind) { return ['東', '南', '西', '北'][kind - 27]; }
+
+/**
+ * 1つの分解(+和了牌位置)に対して役・符を計算する
+ * hand: 上記手牌構造。dec: {pair, mentsu} (副露面子込み)。winPos: {type:'pair'|'koutsu'|'shuntsu', index, waitType}
+ */
+function evaluateDecomposition(hand, allMentsu, pair, winPos, rules) {
+  const isClosed = hand.melds.every((m) => m.type === 'ankan');
+  const yaku = [];
+  const yakuman = [];
+  let han = 0;
+
+  const koutsuLike = allMentsu.filter((m) => m.type !== 'shuntsu');
+  const shuntsu = allMentsu.filter((m) => m.type === 'shuntsu');
+  const kantsu = allMentsu.filter((m) => m.type === 'kantsu');
+  const allKinds = [...hand.closed, ...hand.melds.flatMap((m) => m.tiles)];
+
+  // 待ちの形
+  const waitType = winPos.waitType; // 'ryanmen' | 'kanchan' | 'penchan' | 'shanpon' | 'tanki'
+
+  // ---- 役満判定 ----
+  const concealedKoutsu = koutsuLike.filter((m) => !m.open).length;
+  if (concealedKoutsu === 4) {
+    if (waitType === 'tanki') yakuman.push({ name: '四暗刻単騎', power: rules.suuankouTankiDouble ? 2 : 1 });
+    else yakuman.push({ name: '四暗刻', power: 1 });
+  }
+  const dragonKoutsu = koutsuLike.filter((m) => isDragon(m.kind)).length;
+  if (dragonKoutsu === 3) yakuman.push({ name: '大三元', power: 1 });
+  const windKoutsu = koutsuLike.filter((m) => isWind(m.kind)).length;
+  if (windKoutsu === 4) yakuman.push({ name: '大四喜', power: rules.daisuushiDouble ? 2 : 1 });
+  else if (windKoutsu === 3 && isWind(pair)) yakuman.push({ name: '小四喜', power: 1 });
+  if (allKinds.every(isHonor)) yakuman.push({ name: '字一色', power: 1 });
+  if (allKinds.every(isTerminal)) yakuman.push({ name: '清老頭', power: 1 });
+  const GREEN = new Set([19, 20, 21, 23, 25, 32]); // 23468s 發
+  if (allKinds.every((k) => GREEN.has(k))) yakuman.push({ name: '緑一色', power: 1 });
+  if (kantsu.length === 4) yakuman.push({ name: '四槓子', power: 1 });
+  const chuuren = isChuurenShape(hand.closed, hand.melds);
+  if (chuuren) {
+    const junsei = chuuren.extra === hand.winTile;
+    yakuman.push({ name: junsei ? '純正九蓮宝燈' : '九蓮宝燈', power: junsei && rules.junseiChuurenDouble ? 2 : 1 });
+  }
+  if (hand.isTenhou) yakuman.push({ name: '天和', power: 1 });
+  if (hand.isChiihou) yakuman.push({ name: '地和', power: 1 });
+
+  if (yakuman.length) {
+    return finalizeYakuman(hand, yakuman, rules);
+  }
+
+  // ---- 通常役 ----
+  if (hand.isDoubleRiichi) { yaku.push({ name: 'ダブル立直', han: 2 }); han += 2; }
+  else if (hand.isRiichi) { yaku.push({ name: '立直', han: 1 }); han += 1; }
+  if (hand.isIppatsu && rules.ippatsu) { yaku.push({ name: '一発', han: 1 }); han += 1; }
+  if (hand.isTsumo && isClosed) { yaku.push({ name: '門前清自摸和', han: 1 }); han += 1; }
+
+  // 平和
+  let pinfu = false;
+  const pairIsYakuhai = isDragon(pair) || pair === hand.seatWind || pair === hand.roundWind;
+  if (isClosed && shuntsu.length === 4 && !pairIsYakuhai && waitType === 'ryanmen') {
+    pinfu = true;
+    yaku.push({ name: '平和', han: 1 }); han += 1;
+  }
+  // 断幺九
+  if (allKinds.every(isSimple) && (isClosed || rules.kuitan)) { yaku.push({ name: '断幺九', han: 1 }); han += 1; }
+  // 一盃口 / 二盃口
+  if (isClosed) {
+    const keys = shuntsu.map((m) => m.kind).sort((a, b) => a - b);
+    let peikou = 0;
+    const used = new Array(keys.length).fill(false);
+    for (let i = 0; i < keys.length; i++) {
+      if (used[i]) continue;
+      for (let j = i + 1; j < keys.length; j++) {
+        if (!used[j] && keys[j] === keys[i]) { used[i] = used[j] = true; peikou++; break; }
+      }
+    }
+    if (peikou === 2) { yaku.push({ name: '二盃口', han: 3 }); han += 3; }
+    else if (peikou === 1) { yaku.push({ name: '一盃口', han: 1 }); han += 1; }
+  }
+  // 役牌
+  for (const m of koutsuLike) {
+    if (isDragon(m.kind)) { yaku.push({ name: `役牌 ${['白', '發', '中'][m.kind - 31]}`, han: 1 }); han += 1; }
+    if (isWind(m.kind)) {
+      if (m.kind === hand.seatWind) { yaku.push({ name: `自風 ${windName(m.kind)}`, han: 1 }); han += 1; }
+      if (m.kind === hand.roundWind) { yaku.push({ name: `場風 ${windName(m.kind)}`, han: 1 }); han += 1; }
+      if (rules.kitaYakuhai && m.kind === 30 && hand.seatWind !== 30 && hand.roundWind !== 30) { yaku.push({ name: '役牌 北', han: 1 }); han += 1; }
+    }
+  }
+  if (hand.isHaitei) { yaku.push({ name: '海底摸月', han: 1 }); han += 1; }
+  if (hand.isHoutei) { yaku.push({ name: '河底撈魚', han: 1 }); han += 1; }
+  if (hand.isRinshan) { yaku.push({ name: '嶺上開花', han: 1 }); han += 1; }
+  if (hand.isChankan) { yaku.push({ name: '槍槓', han: 1 }); han += 1; }
+  // 対々和
+  if (koutsuLike.length === 4) { yaku.push({ name: '対々和', han: 2 }); han += 2; }
+  // 三暗刻
+  if (concealedKoutsu === 3) { yaku.push({ name: '三暗刻', han: 2 }); han += 2; }
+  // 三槓子
+  if (kantsu.length === 3) { yaku.push({ name: '三槓子', han: 2 }); han += 2; }
+  // 三色同順
+  {
+    const nums = new Set(shuntsu.filter((m) => suitOf(m.kind) === 'm').map((m) => m.kind % 9));
+    let found = false;
+    for (const n of nums) {
+      if (shuntsu.some((m) => m.kind === 9 + n) && shuntsu.some((m) => m.kind === 18 + n)) found = true;
+    }
+    if (found) { const h = isClosed ? 2 : 1; yaku.push({ name: '三色同順', han: h }); han += h; }
+  }
+  // 三色同刻
+  {
+    const nums = new Set(koutsuLike.filter((m) => suitOf(m.kind) === 'm').map((m) => m.kind % 9));
+    let found = false;
+    for (const n of nums) {
+      if (koutsuLike.some((m) => m.kind === 9 + n) && koutsuLike.some((m) => m.kind === 18 + n)) found = true;
+    }
+    if (found) { yaku.push({ name: '三色同刻', han: 2 }); han += 2; }
+  }
+  // 一気通貫
+  {
+    let found = false;
+    for (const base of [0, 9, 18]) {
+      if (shuntsu.some((m) => m.kind === base) && shuntsu.some((m) => m.kind === base + 3) && shuntsu.some((m) => m.kind === base + 6)) found = true;
+    }
+    if (found) { const h = isClosed ? 2 : 1; yaku.push({ name: '一気通貫', han: h }); han += h; }
+  }
+  // 混全帯幺九 / 純全帯幺九 / 混老頭
+  {
+    const mentsuYaochu = allMentsu.every((m) => (m.type === 'shuntsu' ? m.kind % 9 === 0 || m.kind % 9 === 6 : isYaochu(m.kind)));
+    const hasHonor = allKinds.some(isHonor);
+    if (mentsuYaochu && isYaochu(pair)) {
+      if (shuntsu.length === 0) { yaku.push({ name: '混老頭', han: 2 }); han += 2; }
+      else if (hasHonor) { const h = isClosed ? 2 : 1; yaku.push({ name: '混全帯幺九', han: h }); han += h; }
+      else { const h = isClosed ? 3 : 2; yaku.push({ name: '純全帯幺九', han: h }); han += h; }
+    }
+  }
+  // 小三元
+  if (dragonKoutsu === 2 && isDragon(pair)) { yaku.push({ name: '小三元', han: 2 }); han += 2; }
+  // 混一色 / 清一色
+  {
+    const suits = new Set(allKinds.filter((k) => !isHonor(k)).map(suitOf));
+    if (suits.size === 1) {
+      if (allKinds.some(isHonor)) { const h = isClosed ? 3 : 2; yaku.push({ name: '混一色', han: h }); han += h; }
+      else { const h = isClosed ? 6 : 5; yaku.push({ name: '清一色', han: h }); han += h; }
+    }
+  }
+
+  const yakuHan = han;
+  // ドラ
+  const doraHan = countDora(hand, allKinds);
+  for (const d of doraHan.list) { yaku.push(d); han += d.han; }
+
+  // ---- 符 ----
+  // fuDetail は画面で「符をタップしたら根拠が出る」ための内訳。
+  // 合計だけ返すと、どこで何符付いたかを後から復元できない
+  // (面子ごとに明暗・幺九の別で変わるため、結果の数字からは逆算できない)。
+  let fu;
+  const fuDetail = [];
+  const addFu = (label, n, note) => { if (n) fuDetail.push({ label, fu: n, note }); };
+  if (pinfu) {
+    fu = hand.isTsumo ? FU_TABLE.pinfuTsumo : FU_TABLE.pinfuRon;
+    if (hand.isTsumo) addFu('平和ツモ', FU_TABLE.pinfuTsumo, '平和のツモは一律20符。符が付く要素がひとつも無い形なので、ツモの2符も数えない');
+    else addFu('平和ロン', FU_TABLE.pinfuRon, '副底20符 + 門前ロン10符。面子にも待ちにも符が付かないので、ここで止まる');
+  } else {
+    fu = FU_TABLE.base;
+    addFu('副底', FU_TABLE.base, 'どの和了にも必ず付く土台');
+    if (!hand.isTsumo && isClosed) { fu += FU_TABLE.menzenRon; addFu('門前ロン', FU_TABLE.menzenRon, '鳴いていない手をロンで和了ると付く'); }
+    if (hand.isTsumo) { fu += FU_TABLE.tsumo; addFu('ツモ', FU_TABLE.tsumo, '自分で引いて和了ると付く'); }
+    for (const m of allMentsu) {
+      const n = mentsuFu(m);
+      if (!n) continue;
+      fu += n;
+      addFu(mentsuFuLabel(m), n, mentsuFuNote(m));
+    }
+    if (isDragon(pair)) { fu += FU_TABLE.pairDragon; addFu('雀頭が三元牌', FU_TABLE.pairDragon, `白・發・中が雀頭だと${FU_TABLE.pairDragon}符`); }
+    if (isWind(pair)) {
+      if (pair === hand.seatWind && pair === hand.roundWind) {
+        const n = rules.doubleWindPairFu ?? 4;
+        fu += n; addFu('雀頭が自風かつ場風', n, `連風牌の雀頭。このルールでは${n}符`);
+      } else if (pair === hand.seatWind || pair === hand.roundWind) {
+        fu += FU_TABLE.pairWind; addFu(pair === hand.seatWind ? '雀頭が自風' : '雀頭が場風', FU_TABLE.pairWind, `役になる風が雀頭だと${FU_TABLE.pairWind}符`);
+      }
+    }
+    if (waitType === 'kanchan' || waitType === 'penchan' || waitType === 'tanki') {
+      fu += FU_TABLE.wait;
+      addFu(`待ちが${WAIT_LABEL[waitType]}`, FU_TABLE.wait, `待ちの形が1種類しかないと${FU_TABLE.wait}符。両面・シャンポンには付かない`);
+    }
+    if (fu === 20 && !hand.isTsumo) { fu = 30; fuDetail.push({ label: '副露平和形のロン', fu: 10, note: '鳴いた平和形をロンした場合は30符として扱う' }); }
+    const before = fu;
+    fu = Math.ceil(fu / 10) * 10;
+    if (fu !== before) fuDetail.push({ label: '切り上げ', fu: fu - before, note: `${before}符を10符単位に切り上げる` });
+  }
+
+  return { yaku, yakuman: [], han, yakuHan, fu, fuDetail, waitType, isClosed, pinfu, decomposition: { pair, mentsu: allMentsu } };
+}
+
+function countDora(hand, allKinds) {
+  const list = [];
+  let dora = 0;
+  for (const k of allKinds) for (const d of hand.doraKinds || []) if (k === d) dora++;
+  if (dora) list.push({ name: 'ドラ', han: dora });
+  if (hand.redCount) list.push({ name: '赤ドラ', han: hand.redCount });
+  if (hand.isRiichi || hand.isDoubleRiichi) {
+    let ura = 0;
+    for (const k of allKinds) for (const d of hand.uraDoraKinds || []) if (k === d) ura++;
+    if (ura) list.push({ name: '裏ドラ', han: ura });
+  }
+  if (hand.kitaCount) list.push({ name: '抜きドラ(北)', han: hand.kitaCount });
+  return { list };
+}
+
+function finalizeYakuman(hand, yakuman, rules) {
+  let power = 0;
+  for (const y of yakuman) power += rules.doubleYakuman ? y.power : 1;
+  return { yaku: [], yakuman, yakumanPower: power, han: 13 * power, yakuHan: 13 * power, fu: 0, fuDetail: [], isClosed: hand.melds.every((m) => m.type === 'ankan') };
+}
+
+/** 和了牌の位置候補を列挙 */
+function winPositions(dec, winTile) {
+  const out = [];
+  if (dec.pair === winTile) out.push({ type: 'pair', waitType: 'tanki' });
+  dec.mentsu.forEach((m, index) => {
+    if (m.open) return; // 副露面子には和了牌は含まれない
+    if (m.type === 'koutsu' && m.kind === winTile) out.push({ type: 'koutsu', index, waitType: 'shanpon' });
+    if (m.type === 'shuntsu') {
+      const n = m.kind % 9;
+      if (winTile === m.kind) out.push({ type: 'shuntsu', index, waitType: n + 2 === 8 ? 'penchan' : 'ryanmen' }); // 789 の 7
+      if (winTile === m.kind + 1) out.push({ type: 'shuntsu', index, waitType: 'kanchan' });
+      if (winTile === m.kind + 2) out.push({ type: 'shuntsu', index, waitType: n === 0 ? 'penchan' : 'ryanmen' }); // 123 の 3
+    }
+  });
+  return out;
+}
+
+/**
+ * 手牌を評価し、最高得点となる役構成を返す。和了形でなければ null。
+ * 返り値: { yaku, yakuman, han, fu, ... }
+ */
+function evaluateHand(hand, rules) {
+  const melds = hand.melds.map((m) => ({
+    type: m.type === 'chi' ? 'shuntsu' : m.type === 'pon' ? 'koutsu' : 'kantsu',
+    kind: m.type === 'chi' ? Math.min(...m.tiles) : m.kind,
+    open: m.type !== 'ankan',
+  }));
+  const candidates = [];
+
+  // 国士無双
+  if (isKokushiShape(hand.closed, hand.melds)) {
+    const c = countsOf(hand.closed);
+    const thirteen = c[hand.winTile] === 2; // 和了牌で対子ができた = 十三面待ち
+    const y = [{ name: thirteen ? '国士無双十三面' : '国士無双', power: thirteen && rules.kokushi13Double ? 2 : 1 }];
+    if (hand.isTenhou) y.push({ name: '天和', power: 1 });
+    if (hand.isChiihou) y.push({ name: '地和', power: 1 });
+    candidates.push(finalizeYakuman(hand, y, rules));
+  }
+  // 七対子
+  if (isChiitoiShape(hand.closed, hand.melds)) {
+    const allKinds = hand.closed;
+    if (allKinds.every(isHonor)) {
+      // 字一色だけを入れて帰っていたので、7種の字牌を2枚ずつ持つ形では
+      // 天和・地和が複合しなかった(通常形へ分解されないので逃げ道が無い)
+      const y = [{ name: '字一色', power: 1 }];
+      if (hand.isTenhou) y.push({ name: '天和', power: 1 });
+      else if (hand.isChiihou) y.push({ name: '地和', power: 1 });
+      candidates.push(finalizeYakuman(hand, y, rules));
+    } else {
+      const yaku = [];
+      let han = 0;
+      if (hand.isTenhou) { candidates.push(finalizeYakuman(hand, [{ name: '天和', power: 1 }], rules)); }
+      else if (hand.isChiihou) { candidates.push(finalizeYakuman(hand, [{ name: '地和', power: 1 }], rules)); }
+      if (hand.isDoubleRiichi) { yaku.push({ name: 'ダブル立直', han: 2 }); han += 2; }
+      else if (hand.isRiichi) { yaku.push({ name: '立直', han: 1 }); han += 1; }
+      if (hand.isIppatsu && rules.ippatsu) { yaku.push({ name: '一発', han: 1 }); han += 1; }
+      if (hand.isTsumo) { yaku.push({ name: '門前清自摸和', han: 1 }); han += 1; }
+      if (hand.isHaitei) { yaku.push({ name: '海底摸月', han: 1 }); han += 1; }
+      if (hand.isHoutei) { yaku.push({ name: '河底撈魚', han: 1 }); han += 1; }
+      // 通常形の分岐にはあるのに、ここだけ槍槓を数えていなかった。
+      // 7種の対子だけの形は通常形へ分解されないので、そのまま1翻少なくなる
+      if (hand.isChankan) { yaku.push({ name: '槍槓', han: 1 }); han += 1; }
+      yaku.push({ name: '七対子', han: 2 }); han += 2;
+      if (allKinds.every(isSimple)) { yaku.push({ name: '断幺九', han: 1 }); han += 1; }
+      if (allKinds.every(isYaochu)) { yaku.push({ name: '混老頭', han: 2 }); han += 2; }
+      const suits = new Set(allKinds.filter((k) => !isHonor(k)).map(suitOf));
+      if (suits.size === 1) {
+        if (allKinds.some(isHonor)) { yaku.push({ name: '混一色', han: 3 }); han += 3; }
+        else { yaku.push({ name: '清一色', han: 6 }); han += 6; }
+      }
+      const yakuHan = han;
+      const d = countDora(hand, allKinds);
+      for (const x of d.list) { yaku.push(x); han += x.han; }
+      candidates.push({
+        yaku, yakuman: [], han, yakuHan, fu: 25, waitType: 'tanki', isClosed: true, pinfu: false,
+        fuDetail: [{ label: '七対子', fu: FU_TABLE.chiitoi, note: `七対子は面子の形をしていないので、符を積まず${FU_TABLE.chiitoi}符で固定する` }],
+      });
+    }
+  }
+  // 通常形
+  for (const dec of decompose(hand.closed)) {
+    const allMentsu = [...dec.mentsu, ...melds];
+    for (const pos of winPositions(dec, hand.winTile)) {
+      // ロンで和了牌が刻子を完成させた場合、その刻子は明刻扱い
+      const mentsuCopy = allMentsu.map((m) => ({ ...m }));
+      if (pos.type === 'koutsu' && !hand.isTsumo) mentsuCopy[pos.index].open = true;
+      candidates.push(evaluateDecomposition(hand, mentsuCopy, dec.pair, pos, rules));
+    }
+  }
+  if (!candidates.length) return null;
+  // 役なしは除外(ドラのみは和了不可)
+  const valid = candidates.filter((c) => c.yakuman.length > 0 || c.yakuHan > 0);
+  if (!valid.length) return { noYaku: true, candidates };
+  valid.sort((a, b) => compareScore(b, a));
+  return valid[0];
+}
+
+function compareScore(a, b) {
+  const pa = a.yakuman.length ? 1000 + a.han : a.han * 1000 + a.fu;
+  const pb = b.yakuman.length ? 1000 + b.han : b.han * 1000 + b.fu;
+  // 同翻なら符の高い方、翻優先
+  if (a.yakuman.length !== b.yakuman.length) return a.yakuman.length ? 1 : -1;
+  if (a.han !== b.han) return a.han - b.han;
+  return a.fu - b.fu;
+}
+
+return { decompose, isChiitoiShape, isKokushiShape, FU_TABLE, evaluateHand };
+})();
+
+__m["src/core/score.js"] = (function () {
+// 点数計算
+const { evaluateHand } = __m["src/core/yaku.js"];
+function ceil100(x) { return Math.ceil(x / 100) * 100; }
+
+/** 翻・符 → 基本点(子ロンの1/4)。yakumanPower>0 なら役満 */
+function basePoints(han, fu, rules, yakumanPower = 0) {
+  if (yakumanPower > 0) return { base: 8000 * yakumanPower, label: yakumanPower > 1 ? `${yakumanPower}倍役満` : '役満' };
+  if (han >= 13) {
+    if (rules.kazoeYakuman) return { base: 8000, label: '数え役満' };
+    return { base: 6000, label: '三倍満' };
+  }
+  if (han >= 11) return { base: 6000, label: '三倍満' };
+  if (han >= 8) return { base: 4000, label: '倍満' };
+  if (han >= 6) return { base: 3000, label: '跳満' };
+  if (han >= 5) return { base: 2000, label: '満貫' };
+  let base = fu * Math.pow(2, han + 2);
+  if (base >= 2000) return { base: 2000, label: '満貫' };
+  if (rules.kiriageMangan && ((han === 4 && fu === 30) || (han === 3 && fu === 60))) return { base: 2000, label: '満貫' };
+  return { base, label: '' };
+}
+
+/**
+ * 支払い計算
+ * @param {object} opts { base, isDealer, isTsumo, players, honba, rules }
+ * 返り値: { total, ron, tsumoDealer(親の支払い), tsumoNonDealer(子の支払い), honbaTotal }
+ */
+function payments({ base, isDealer, isTsumo, players, honba = 0, rules }) {
+  const res = { total: 0, ron: 0, tsumoDealer: 0, tsumoNonDealer: 0, honbaTotal: 0 };
+  if (!isTsumo) {
+    res.ron = ceil100(base * (isDealer ? 6 : 4));
+    res.honbaTotal = honba * (rules.honbaRon ?? 300);
+    res.total = res.ron + res.honbaTotal;
+    return res;
+  }
+  const others = players - 1;
+  if (players === 4 || rules.tsumoLoss) {
+    if (isDealer) { res.tsumoNonDealer = ceil100(base * 2); res.total = res.tsumoNonDealer * others; }
+    else { res.tsumoDealer = ceil100(base * 2); res.tsumoNonDealer = ceil100(base); res.total = res.tsumoDealer + res.tsumoNonDealer * (others - 1); }
+  } else {
+    // 三麻ツモ損なし: 4人麻雀の支払いに、居ない子の分を2人で按分して加算
+    if (isDealer) {
+      // 親ツモ: 4人なら 2倍×3人。居ない1人分(2倍)を2人で按分 → 各 3倍
+      res.tsumoNonDealer = ceil100(base * 3); res.total = res.tsumoNonDealer * 2;
+    } else {
+      // 子ツモ: 親2倍・子1倍 + 居ない子1倍分を按分(0.5ずつ)
+      res.tsumoDealer = ceil100(base * 2.5); res.tsumoNonDealer = ceil100(base * 1.5);
+      res.total = res.tsumoDealer + res.tsumoNonDealer;
+    }
+  }
+  const each = rules.honbaTsumoEach ?? 100;
+  res.honbaTotal = honba * each * others;
+  res.tsumoDealer += res.tsumoDealer ? honba * each : 0;
+  res.tsumoNonDealer += honba * each;
+  res.total += res.honbaTotal;
+  return res;
+}
+
+/**
+ * 手牌を評価して点数まで求める。
+ * @param hand yaku.js の手牌構造。加えて isDealer, honba を含める
+ */
+function scoreHand(hand, rules) {
+  const ev = evaluateHand(hand, rules);
+  if (!ev) return null;
+  if (ev.noYaku) return { noYaku: true };
+  const bp = basePoints(ev.han, ev.fu, rules, ev.yakumanPower || 0);
+  const pay = payments({ base: bp.base, isDealer: hand.isDealer, isTsumo: hand.isTsumo, players: rules.players, honba: hand.honba || 0, rules });
+  return { ...ev, base: bp.base, label: bp.label, pay, isDealer: hand.isDealer, isTsumo: hand.isTsumo };
+}
+
+/** 点数のみの表記(本場を除く)。例: "3900" / "2000/4000" / "4000オール" */
+function formatScore(res) {
+  const p = res.pay;
+  if (!res.isTsumo) return String(p.ron);
+  if (res.isDealer) return `${p.tsumoNonDealer}オール`;
+  return `${p.tsumoNonDealer}/${p.tsumoDealer}`;
+}
+
+/** 符・翻・満貫以上のラベル。例: "30符4翻" / "40符4翻 満貫" / "役満" / "2倍役満" */
+function formatHanFu(res) {
+  if (res.yakuman?.length) return `${res.yakumanPower > 1 ? res.yakumanPower + '倍' : ''}役満`;
+  return `${res.fu}符${res.han}翻${res.label ? ' ' + res.label : ''}`;
+}
+
+/** 手役名の一覧。例: "立直 門前清自摸和 平和 ドラ2" / "国士無双十三面" */
+function formatYaku(res) {
+  if (res.yakuman?.length) return res.yakuman.map((y) => y.name).join('・');
+  return res.yaku.map((y) => `${y.name}${y.han > 1 ? ' ' + y.han : ''}`).join('、');
+}
+
+/** 点数早見表(子ロン基準)を作る: 符×翻 → 点 */
+function scoreTable(rules) {
+  const fus = [20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110];
+  const table = {};
+  for (const fu of fus) {
+    table[fu] = {};
+    for (let han = 1; han <= 4; han++) {
+      const bp = basePoints(han, fu, rules);
+      table[fu][han] = {
+        childRon: ceil100(bp.base * 4), dealerRon: ceil100(bp.base * 6),
+        childTsumo: `${ceil100(bp.base)}/${ceil100(bp.base * 2)}`, dealerTsumo: `${ceil100(bp.base * 2)}オール`,
+      };
+    }
+  }
+  return table;
+}
+
+return { ceil100, basePoints, payments, scoreHand, formatScore, formatHanFu, formatYaku, scoreTable };
+})();
+
+__m["src/core/winRateState.js"] = (function () {
+// 聴牌の和了率を、手の状態(副露 / 門前ダマ)ごとの自己対戦の表で引く(係数 winRateByState)。
+//
+// 分け方は集計(60)(tools/win-rate-state-survey.mjs)と同じものを使う約束なので、集計の道具もここを読む。
+// 集計の結果: docs/measurements/2026-10-02-winRateByState-survey.md(表は --emit で data/win-rate-state.<ルール>.json)
+const { scoreHand } = __m["src/core/score.js"];
+/** 巡目の帯(その席の打牌数)。riichiWin の表の節(3 / 6 / 9 / 12 / 15 / 18)の上端まで */
+const TURN_BANDS = ['t1_3', 't4_6', 't7_9', 't10_12', 't13_15', 't16'];
+const turnBandOf = (t) => (t <= 3 ? 't1_3' : t <= 6 ? 't4_6' : t <= 9 ? 't7_9' : t <= 12 ? 't10_12' : t <= 15 ? 't13_15' : 't16');
+/** 待ち枚数(待ち牌の残り枚数の合計)の帯 */
+const waitBandOf = (u) => (u <= 4 ? 'w0_4' : u <= 8 ? 'w5_8' : 'w9');
+
+/**
+ * 聴牌の13枚 c2(待ち w)と副露 melds が、ロンで和了れる役を持つか(立直なし・裏なし。どれかの待ちで役があれば true)。
+ * ctx = { seatWind, roundWind, isDealer, rules }。ドラ・赤は役にならないので見ない。melds の tiles は牌のオブジェクトでも種類でもよい
+ */
+function hasRonYakuHand(c2, melds, w, ctx) {
+  const closed = [];
+  for (let x = 0; x < 34; x++) for (let i = 0; i < c2[x]; i++) closed.push(x);
+  const ms = melds.map((m) => ({ type: m.type, kind: m.kind, tiles: m.tiles.map((t) => (typeof t === 'number' ? t : t.kind)) }));
+  for (const k of w) {
+    const hand = {
+      closed: [...closed, k], melds: ms, winTile: k, isTsumo: false,
+      isRiichi: false, isDoubleRiichi: false, isIppatsu: false, isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false, isTenhou: false, isChiihou: false,
+      seatWind: ctx.seatWind, roundWind: ctx.roundWind, doraKinds: [], uraDoraKinds: [], redCount: 0, kitaCount: 0, isDealer: !!ctx.isDealer, honba: 0,
+    };
+    const res = scoreHand(hand, ctx.rules);
+    if (res && !res.noYaku) return true;
+  }
+  return false;
+}
+
+/** 集計の道具から呼ぶ形(席の状態から風・親・ルールを取る) */
+function hasRonYaku(game, seat, c2, w) {
+  const s = game.state.seats[seat];
+  return hasRonYakuHand(c2, s.melds, w, { seatWind: game.seatWind(seat), roundWind: game.roundWind(), isDealer: seat === game.state.dealer, rules: game.rules });
+}
+
+/** 表のマスの名前(状態 | 形 | 巡目 | 待ち枚数 | 役) */
+const cellKey = (state, good, turn, remain, yaku) => `${state}|${good ? 'good' : 'bad'}|${turnBandOf(turn)}|${waitBandOf(remain)}|${yaku ? 'yaku' : 'noyaku'}`;
+
+/** 件数がこれ未満のマスは引かない(リーチの表のまま) */
+const MIN_N = 50;
+
+/**
+ * 副露の聴牌の和了率(%)。table = { cells: { [cellKey]: { n, ratePct } } }。マスが無いか件数 MIN_N 未満なら base(リーチの表の値)を返す。
+ * w で base と混ぜる(0〜1)
+ */
+function openWinRate(base, good, turn, remain, yaku, table, w) {
+  const c = table.cells[cellKey('open', good, turn, remain, yaku)];
+  if (!c || c.n < MIN_N) return base;
+  return (1 - w) * base + w * c.ratePct;
+}
+
+return { TURN_BANDS, turnBandOf, waitBandOf, hasRonYakuHand, hasRonYaku, cellKey, MIN_N, openWinRate };
+})();
+
 __m["src/core/riichiRead.js"] = (function () {
 // リーチの宣言牌との関係で、形モデルの放銃率に倍率を掛ける(係数 riichiTileRead)。
 //
@@ -6645,6 +7289,7 @@ return { remainingDraws, keitenAfterCall, callForbidden, tenpaiMemo, TENPAI_FEE,
 __m["src/core/evaluate.js"] = (function () {
 // 何切る評価: 受け入れ・良形率・打点見込み・危険度・局収支の近似
 const { hanFixOf } = __m["src/core/hanEstimateCalib.js"];
+const { hasRonYakuHand, openWinRate } = __m["src/core/winRateState.js"];
 const { shanten, shantenStandard, ukeire, waits } = __m["src/core/shanten.js"];
 const { isSimple, isHonor, isDragon, isWind, isYaochu, suitOf, kindToName } = __m["src/core/tiles.js"];
 const { dangerAgainstAll, dangerAgainstThreats, formatDanger } = __m["src/core/danger.js"];
@@ -7020,7 +7665,15 @@ function evaluateDiscards(p) {
     // 和了率見込み
     let winRate;
     if (s < 0) winRate = 100;   // すでに和了形(15枚の手牌を渡された場合など)
-    else if (s === 0) winRate = tenpaiWinRate(turn, waitInfo.total, winTable);
+    else if (s === 0) {
+      winRate = tenpaiWinRate(turn, waitInfo.total, winTable);
+      // 副露の聴牌は、状態別の表(形 x 巡目 x 待ち枚数 x ロンの役の有無)で引く(winRateByState。p.winState を渡したときだけ。門前はリーチの表のまま)
+      if (p.winState && melds.some((m) => m.type !== 'ankan')) {
+        let remain = 0; for (const x of waitInfo.kinds) remain += Math.max(0, 4 - visible[x]);
+        const yaku = hasRonYakuHand(counts, melds, waitInfo.kinds, p.winState);
+        winRate = openWinRate(winRate, isGoodWait(waitInfo.kinds, visible), turn, remain, yaku, p.winState.table, p.winState.w);
+      }
+    }
     else {
       // 聴牌まで s 回前進する必要がある。各段階の成功確率から、残り巡目で
       // 聴牌に届く確率を出す。
@@ -7084,7 +7737,8 @@ function evaluateDiscards(p) {
     if (tEnd && s >= 0 && s <= 2) {
       if (s > 0) tMemo.c = k;
       tenpaiDraw = s === 0 ? 1 : tenpaiProb(counts, meldCount, visible, unseenKinds, tEnd.draws, tMemo);
-      ev += Math.round(tEnd.w * tenpaiDraw * TENPAI_FEE);
+      // 聴牌料の期待値。親なら連荘の価値を足した額を呼ぶ側が fee に入れる(dealerTenpaiBonus)。無ければ TENPAI_FEE
+      ev += Math.round(tEnd.w * tenpaiDraw * (tEnd.fee ?? TENPAI_FEE));
     }
 
     // 順位点(pt)で評価し直す。
@@ -8185,584 +8839,6 @@ const ROADMAP = {
 return { ROADMAP };
 })();
 
-__m["src/core/yaku.js"] = (function () {
-// 役判定・符計算
-const { isHonor, isTerminal, isYaochu, isSimple, suitOf, numOf, isWind, isDragon, kindToName } = __m["src/core/tiles.js"];
-/**
- * 手牌構造:
- * {
- *   closed: kind[]           // 門前部分(和了牌を含む)
- *   melds: [{type:'chi'|'pon'|'ankan'|'minkan'|'kakan', kind, tiles: kind[]}]
- *   winTile: kind
- *   isTsumo, isRiichi, isDoubleRiichi, isIppatsu, isHaitei, isHoutei, isRinshan, isChankan, isTenhou, isChiihou
- *   seatWind: kind(27..30), roundWind: kind
- *   doraKinds: kind[] (表ドラ・槓ドラ), uraDoraKinds: kind[], redCount, kitaCount
- * }
- */
-
-function countsOf(kinds) {
-  const c = new Array(34).fill(0);
-  for (const k of kinds) c[k]++;
-  return c;
-}
-
-/** 門前部分を 面子+雀頭 に分解する全パターン列挙 */
-function decompose(closedKinds) {
-  const counts = countsOf(closedKinds);
-  const results = [];
-  const mentsu = [];
-  function dfs(i, pair) {
-    while (i < 34 && counts[i] === 0) i++;
-    if (i === 34) {
-      if (pair !== null) results.push({ pair, mentsu: mentsu.map((m) => ({ ...m })) });
-      return;
-    }
-    if (counts[i] >= 3) {
-      counts[i] -= 3;
-      mentsu.push({ type: 'koutsu', kind: i, open: false });
-      dfs(i, pair);
-      mentsu.pop();
-      counts[i] += 3;
-    }
-    if (i < 27 && i % 9 <= 6 && counts[i + 1] > 0 && counts[i + 2] > 0) {
-      counts[i]--; counts[i + 1]--; counts[i + 2]--;
-      mentsu.push({ type: 'shuntsu', kind: i, open: false });
-      dfs(i, pair);
-      mentsu.pop();
-      counts[i]++; counts[i + 1]++; counts[i + 2]++;
-    }
-    if (pair === null && counts[i] >= 2) {
-      counts[i] -= 2;
-      dfs(i, i);
-      counts[i] += 2;
-    }
-  }
-  dfs(0, null);
-  return results;
-}
-
-function isChiitoiShape(closedKinds, melds) {
-  if (melds.length > 0 || closedKinds.length !== 14) return false;
-  const c = countsOf(closedKinds);
-  let pairs = 0;
-  for (let k = 0; k < 34; k++) {
-    if (c[k] === 2) pairs++;
-    else if (c[k] !== 0) return false;
-  }
-  return pairs === 7;
-}
-
-const YAOCHU_KINDS = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
-
-function isKokushiShape(closedKinds, melds) {
-  if (melds.length > 0 || closedKinds.length !== 14) return false;
-  const c = countsOf(closedKinds);
-  let pairFound = false;
-  for (const k of YAOCHU_KINDS) {
-    if (c[k] === 0) return false;
-    if (c[k] === 2) pairFound = true;
-    if (c[k] > 2) return false;
-  }
-  return pairFound;
-}
-
-function isChuurenShape(closedKinds, melds) {
-  if (melds.length > 0 || closedKinds.length !== 14) return false;
-  const suit = suitOf(closedKinds[0]);
-  if (suit === 'z') return false;
-  if (!closedKinds.every((k) => suitOf(k) === suit)) return false;
-  const c = countsOf(closedKinds);
-  const base = closedKinds[0] - (closedKinds[0] % 9);
-  const need = [3, 1, 1, 1, 1, 1, 1, 1, 3];
-  let extra = -1;
-  for (let i = 0; i < 9; i++) {
-    const d = c[base + i] - need[i];
-    if (d < 0 || d > 1) return false;
-    if (d === 1) { if (extra !== -1) return false; extra = base + i; }
-  }
-  return extra !== -1 ? { extra } : false;
-}
-
-/**
- * 符の表。**画面の説明もここを読む**(src/ui/views/score.js)。
- * 説明を別に書くと、計算を直したときに片方だけ古くなり、
- * 「表のとおりに足しても合わない」という一番たちの悪いずれ方をする。
- */
-const FU_TABLE = {
-  base: 20,          // 副底。どの和了にも付く
-  menzenRon: 10,     // 門前でロン
-  tsumo: 2,          // ツモ
-  wait: 2,           // 嵌張・辺張・単騎
-  pairDragon: 2,     // 雀頭が三元牌
-  pairWind: 2,       // 雀頭が自風か場風(連風牌は rules.doubleWindPairFu)
-  chiitoi: 25,       // 七対子は固定
-  pinfuTsumo: 20,    // 平和ツモは一律
-  pinfuRon: 30,      // 平和ロン(副底20+門前ロン10)
-  // 面子。[中張, 幺九] × [明, 暗]
-  koutsu: { simple: { open: 2, closed: 4 }, yaochu: { open: 4, closed: 8 } },
-  kantsu: { simple: { open: 8, closed: 16 }, yaochu: { open: 16, closed: 32 } },
-};
-
-/** 面子の符 */
-function mentsuFu(m) {
-  if (m.type === 'shuntsu') return 0;
-  const t = FU_TABLE[m.type === 'kantsu' ? 'kantsu' : 'koutsu'];
-  return t[isYaochu(m.kind) ? 'yaochu' : 'simple'][m.open ? 'open' : 'closed'];
-}
-
-// 待ちの呼び名。シャンポンは**カタカナで書く。** 漢字表記に使う字の片方は
-// 日本語フォントに入っていない中国語専用の字で、そこだけ字形が変わる
-// (tools/make-font.sh が弾いた。この注意書き自体にもその字を書けない)
-const WAIT_LABEL = { kanchan: '嵌張', penchan: '辺張', tanki: '単騎', ryanmen: '両面', shanpon: 'シャンポン' };
-
-/** 符の内訳に出す面子の名前。
- *  **どの牌の面子かを書く。** 「中張牌の暗刻 +4符」が2行並ぶと、
- *  手牌のどれを指しているのか分からず、自分で検算できない。 */
-function mentsuFuLabel(m) {
-  const open = m.open ? '明' : '暗';
-  return `${kindToName(m.kind)} の${open}${m.type === 'kantsu' ? '槓' : '刻'}`;
-}
-
-function mentsuFuNote(m) {
-  const base = isYaochu(m.kind) ? '1・9・字牌なので4符' : '2〜8なので2符';
-  const k = m.type === 'kantsu' ? '槓子はその4倍' : '刻子はそのまま';
-  const o = m.open ? '鳴いているので倍にしない' : '暗(鳴いていない)なのでさらに2倍';
-  return `${base}、${k}、${o}`;
-}
-
-function windName(kind) { return ['東', '南', '西', '北'][kind - 27]; }
-
-/**
- * 1つの分解(+和了牌位置)に対して役・符を計算する
- * hand: 上記手牌構造。dec: {pair, mentsu} (副露面子込み)。winPos: {type:'pair'|'koutsu'|'shuntsu', index, waitType}
- */
-function evaluateDecomposition(hand, allMentsu, pair, winPos, rules) {
-  const isClosed = hand.melds.every((m) => m.type === 'ankan');
-  const yaku = [];
-  const yakuman = [];
-  let han = 0;
-
-  const koutsuLike = allMentsu.filter((m) => m.type !== 'shuntsu');
-  const shuntsu = allMentsu.filter((m) => m.type === 'shuntsu');
-  const kantsu = allMentsu.filter((m) => m.type === 'kantsu');
-  const allKinds = [...hand.closed, ...hand.melds.flatMap((m) => m.tiles)];
-
-  // 待ちの形
-  const waitType = winPos.waitType; // 'ryanmen' | 'kanchan' | 'penchan' | 'shanpon' | 'tanki'
-
-  // ---- 役満判定 ----
-  const concealedKoutsu = koutsuLike.filter((m) => !m.open).length;
-  if (concealedKoutsu === 4) {
-    if (waitType === 'tanki') yakuman.push({ name: '四暗刻単騎', power: rules.suuankouTankiDouble ? 2 : 1 });
-    else yakuman.push({ name: '四暗刻', power: 1 });
-  }
-  const dragonKoutsu = koutsuLike.filter((m) => isDragon(m.kind)).length;
-  if (dragonKoutsu === 3) yakuman.push({ name: '大三元', power: 1 });
-  const windKoutsu = koutsuLike.filter((m) => isWind(m.kind)).length;
-  if (windKoutsu === 4) yakuman.push({ name: '大四喜', power: rules.daisuushiDouble ? 2 : 1 });
-  else if (windKoutsu === 3 && isWind(pair)) yakuman.push({ name: '小四喜', power: 1 });
-  if (allKinds.every(isHonor)) yakuman.push({ name: '字一色', power: 1 });
-  if (allKinds.every(isTerminal)) yakuman.push({ name: '清老頭', power: 1 });
-  const GREEN = new Set([19, 20, 21, 23, 25, 32]); // 23468s 發
-  if (allKinds.every((k) => GREEN.has(k))) yakuman.push({ name: '緑一色', power: 1 });
-  if (kantsu.length === 4) yakuman.push({ name: '四槓子', power: 1 });
-  const chuuren = isChuurenShape(hand.closed, hand.melds);
-  if (chuuren) {
-    const junsei = chuuren.extra === hand.winTile;
-    yakuman.push({ name: junsei ? '純正九蓮宝燈' : '九蓮宝燈', power: junsei && rules.junseiChuurenDouble ? 2 : 1 });
-  }
-  if (hand.isTenhou) yakuman.push({ name: '天和', power: 1 });
-  if (hand.isChiihou) yakuman.push({ name: '地和', power: 1 });
-
-  if (yakuman.length) {
-    return finalizeYakuman(hand, yakuman, rules);
-  }
-
-  // ---- 通常役 ----
-  if (hand.isDoubleRiichi) { yaku.push({ name: 'ダブル立直', han: 2 }); han += 2; }
-  else if (hand.isRiichi) { yaku.push({ name: '立直', han: 1 }); han += 1; }
-  if (hand.isIppatsu && rules.ippatsu) { yaku.push({ name: '一発', han: 1 }); han += 1; }
-  if (hand.isTsumo && isClosed) { yaku.push({ name: '門前清自摸和', han: 1 }); han += 1; }
-
-  // 平和
-  let pinfu = false;
-  const pairIsYakuhai = isDragon(pair) || pair === hand.seatWind || pair === hand.roundWind;
-  if (isClosed && shuntsu.length === 4 && !pairIsYakuhai && waitType === 'ryanmen') {
-    pinfu = true;
-    yaku.push({ name: '平和', han: 1 }); han += 1;
-  }
-  // 断幺九
-  if (allKinds.every(isSimple) && (isClosed || rules.kuitan)) { yaku.push({ name: '断幺九', han: 1 }); han += 1; }
-  // 一盃口 / 二盃口
-  if (isClosed) {
-    const keys = shuntsu.map((m) => m.kind).sort((a, b) => a - b);
-    let peikou = 0;
-    const used = new Array(keys.length).fill(false);
-    for (let i = 0; i < keys.length; i++) {
-      if (used[i]) continue;
-      for (let j = i + 1; j < keys.length; j++) {
-        if (!used[j] && keys[j] === keys[i]) { used[i] = used[j] = true; peikou++; break; }
-      }
-    }
-    if (peikou === 2) { yaku.push({ name: '二盃口', han: 3 }); han += 3; }
-    else if (peikou === 1) { yaku.push({ name: '一盃口', han: 1 }); han += 1; }
-  }
-  // 役牌
-  for (const m of koutsuLike) {
-    if (isDragon(m.kind)) { yaku.push({ name: `役牌 ${['白', '發', '中'][m.kind - 31]}`, han: 1 }); han += 1; }
-    if (isWind(m.kind)) {
-      if (m.kind === hand.seatWind) { yaku.push({ name: `自風 ${windName(m.kind)}`, han: 1 }); han += 1; }
-      if (m.kind === hand.roundWind) { yaku.push({ name: `場風 ${windName(m.kind)}`, han: 1 }); han += 1; }
-      if (rules.kitaYakuhai && m.kind === 30 && hand.seatWind !== 30 && hand.roundWind !== 30) { yaku.push({ name: '役牌 北', han: 1 }); han += 1; }
-    }
-  }
-  if (hand.isHaitei) { yaku.push({ name: '海底摸月', han: 1 }); han += 1; }
-  if (hand.isHoutei) { yaku.push({ name: '河底撈魚', han: 1 }); han += 1; }
-  if (hand.isRinshan) { yaku.push({ name: '嶺上開花', han: 1 }); han += 1; }
-  if (hand.isChankan) { yaku.push({ name: '槍槓', han: 1 }); han += 1; }
-  // 対々和
-  if (koutsuLike.length === 4) { yaku.push({ name: '対々和', han: 2 }); han += 2; }
-  // 三暗刻
-  if (concealedKoutsu === 3) { yaku.push({ name: '三暗刻', han: 2 }); han += 2; }
-  // 三槓子
-  if (kantsu.length === 3) { yaku.push({ name: '三槓子', han: 2 }); han += 2; }
-  // 三色同順
-  {
-    const nums = new Set(shuntsu.filter((m) => suitOf(m.kind) === 'm').map((m) => m.kind % 9));
-    let found = false;
-    for (const n of nums) {
-      if (shuntsu.some((m) => m.kind === 9 + n) && shuntsu.some((m) => m.kind === 18 + n)) found = true;
-    }
-    if (found) { const h = isClosed ? 2 : 1; yaku.push({ name: '三色同順', han: h }); han += h; }
-  }
-  // 三色同刻
-  {
-    const nums = new Set(koutsuLike.filter((m) => suitOf(m.kind) === 'm').map((m) => m.kind % 9));
-    let found = false;
-    for (const n of nums) {
-      if (koutsuLike.some((m) => m.kind === 9 + n) && koutsuLike.some((m) => m.kind === 18 + n)) found = true;
-    }
-    if (found) { yaku.push({ name: '三色同刻', han: 2 }); han += 2; }
-  }
-  // 一気通貫
-  {
-    let found = false;
-    for (const base of [0, 9, 18]) {
-      if (shuntsu.some((m) => m.kind === base) && shuntsu.some((m) => m.kind === base + 3) && shuntsu.some((m) => m.kind === base + 6)) found = true;
-    }
-    if (found) { const h = isClosed ? 2 : 1; yaku.push({ name: '一気通貫', han: h }); han += h; }
-  }
-  // 混全帯幺九 / 純全帯幺九 / 混老頭
-  {
-    const mentsuYaochu = allMentsu.every((m) => (m.type === 'shuntsu' ? m.kind % 9 === 0 || m.kind % 9 === 6 : isYaochu(m.kind)));
-    const hasHonor = allKinds.some(isHonor);
-    if (mentsuYaochu && isYaochu(pair)) {
-      if (shuntsu.length === 0) { yaku.push({ name: '混老頭', han: 2 }); han += 2; }
-      else if (hasHonor) { const h = isClosed ? 2 : 1; yaku.push({ name: '混全帯幺九', han: h }); han += h; }
-      else { const h = isClosed ? 3 : 2; yaku.push({ name: '純全帯幺九', han: h }); han += h; }
-    }
-  }
-  // 小三元
-  if (dragonKoutsu === 2 && isDragon(pair)) { yaku.push({ name: '小三元', han: 2 }); han += 2; }
-  // 混一色 / 清一色
-  {
-    const suits = new Set(allKinds.filter((k) => !isHonor(k)).map(suitOf));
-    if (suits.size === 1) {
-      if (allKinds.some(isHonor)) { const h = isClosed ? 3 : 2; yaku.push({ name: '混一色', han: h }); han += h; }
-      else { const h = isClosed ? 6 : 5; yaku.push({ name: '清一色', han: h }); han += h; }
-    }
-  }
-
-  const yakuHan = han;
-  // ドラ
-  const doraHan = countDora(hand, allKinds);
-  for (const d of doraHan.list) { yaku.push(d); han += d.han; }
-
-  // ---- 符 ----
-  // fuDetail は画面で「符をタップしたら根拠が出る」ための内訳。
-  // 合計だけ返すと、どこで何符付いたかを後から復元できない
-  // (面子ごとに明暗・幺九の別で変わるため、結果の数字からは逆算できない)。
-  let fu;
-  const fuDetail = [];
-  const addFu = (label, n, note) => { if (n) fuDetail.push({ label, fu: n, note }); };
-  if (pinfu) {
-    fu = hand.isTsumo ? FU_TABLE.pinfuTsumo : FU_TABLE.pinfuRon;
-    if (hand.isTsumo) addFu('平和ツモ', FU_TABLE.pinfuTsumo, '平和のツモは一律20符。符が付く要素がひとつも無い形なので、ツモの2符も数えない');
-    else addFu('平和ロン', FU_TABLE.pinfuRon, '副底20符 + 門前ロン10符。面子にも待ちにも符が付かないので、ここで止まる');
-  } else {
-    fu = FU_TABLE.base;
-    addFu('副底', FU_TABLE.base, 'どの和了にも必ず付く土台');
-    if (!hand.isTsumo && isClosed) { fu += FU_TABLE.menzenRon; addFu('門前ロン', FU_TABLE.menzenRon, '鳴いていない手をロンで和了ると付く'); }
-    if (hand.isTsumo) { fu += FU_TABLE.tsumo; addFu('ツモ', FU_TABLE.tsumo, '自分で引いて和了ると付く'); }
-    for (const m of allMentsu) {
-      const n = mentsuFu(m);
-      if (!n) continue;
-      fu += n;
-      addFu(mentsuFuLabel(m), n, mentsuFuNote(m));
-    }
-    if (isDragon(pair)) { fu += FU_TABLE.pairDragon; addFu('雀頭が三元牌', FU_TABLE.pairDragon, `白・發・中が雀頭だと${FU_TABLE.pairDragon}符`); }
-    if (isWind(pair)) {
-      if (pair === hand.seatWind && pair === hand.roundWind) {
-        const n = rules.doubleWindPairFu ?? 4;
-        fu += n; addFu('雀頭が自風かつ場風', n, `連風牌の雀頭。このルールでは${n}符`);
-      } else if (pair === hand.seatWind || pair === hand.roundWind) {
-        fu += FU_TABLE.pairWind; addFu(pair === hand.seatWind ? '雀頭が自風' : '雀頭が場風', FU_TABLE.pairWind, `役になる風が雀頭だと${FU_TABLE.pairWind}符`);
-      }
-    }
-    if (waitType === 'kanchan' || waitType === 'penchan' || waitType === 'tanki') {
-      fu += FU_TABLE.wait;
-      addFu(`待ちが${WAIT_LABEL[waitType]}`, FU_TABLE.wait, `待ちの形が1種類しかないと${FU_TABLE.wait}符。両面・シャンポンには付かない`);
-    }
-    if (fu === 20 && !hand.isTsumo) { fu = 30; fuDetail.push({ label: '副露平和形のロン', fu: 10, note: '鳴いた平和形をロンした場合は30符として扱う' }); }
-    const before = fu;
-    fu = Math.ceil(fu / 10) * 10;
-    if (fu !== before) fuDetail.push({ label: '切り上げ', fu: fu - before, note: `${before}符を10符単位に切り上げる` });
-  }
-
-  return { yaku, yakuman: [], han, yakuHan, fu, fuDetail, waitType, isClosed, pinfu, decomposition: { pair, mentsu: allMentsu } };
-}
-
-function countDora(hand, allKinds) {
-  const list = [];
-  let dora = 0;
-  for (const k of allKinds) for (const d of hand.doraKinds || []) if (k === d) dora++;
-  if (dora) list.push({ name: 'ドラ', han: dora });
-  if (hand.redCount) list.push({ name: '赤ドラ', han: hand.redCount });
-  if (hand.isRiichi || hand.isDoubleRiichi) {
-    let ura = 0;
-    for (const k of allKinds) for (const d of hand.uraDoraKinds || []) if (k === d) ura++;
-    if (ura) list.push({ name: '裏ドラ', han: ura });
-  }
-  if (hand.kitaCount) list.push({ name: '抜きドラ(北)', han: hand.kitaCount });
-  return { list };
-}
-
-function finalizeYakuman(hand, yakuman, rules) {
-  let power = 0;
-  for (const y of yakuman) power += rules.doubleYakuman ? y.power : 1;
-  return { yaku: [], yakuman, yakumanPower: power, han: 13 * power, yakuHan: 13 * power, fu: 0, fuDetail: [], isClosed: hand.melds.every((m) => m.type === 'ankan') };
-}
-
-/** 和了牌の位置候補を列挙 */
-function winPositions(dec, winTile) {
-  const out = [];
-  if (dec.pair === winTile) out.push({ type: 'pair', waitType: 'tanki' });
-  dec.mentsu.forEach((m, index) => {
-    if (m.open) return; // 副露面子には和了牌は含まれない
-    if (m.type === 'koutsu' && m.kind === winTile) out.push({ type: 'koutsu', index, waitType: 'shanpon' });
-    if (m.type === 'shuntsu') {
-      const n = m.kind % 9;
-      if (winTile === m.kind) out.push({ type: 'shuntsu', index, waitType: n + 2 === 8 ? 'penchan' : 'ryanmen' }); // 789 の 7
-      if (winTile === m.kind + 1) out.push({ type: 'shuntsu', index, waitType: 'kanchan' });
-      if (winTile === m.kind + 2) out.push({ type: 'shuntsu', index, waitType: n === 0 ? 'penchan' : 'ryanmen' }); // 123 の 3
-    }
-  });
-  return out;
-}
-
-/**
- * 手牌を評価し、最高得点となる役構成を返す。和了形でなければ null。
- * 返り値: { yaku, yakuman, han, fu, ... }
- */
-function evaluateHand(hand, rules) {
-  const melds = hand.melds.map((m) => ({
-    type: m.type === 'chi' ? 'shuntsu' : m.type === 'pon' ? 'koutsu' : 'kantsu',
-    kind: m.type === 'chi' ? Math.min(...m.tiles) : m.kind,
-    open: m.type !== 'ankan',
-  }));
-  const candidates = [];
-
-  // 国士無双
-  if (isKokushiShape(hand.closed, hand.melds)) {
-    const c = countsOf(hand.closed);
-    const thirteen = c[hand.winTile] === 2; // 和了牌で対子ができた = 十三面待ち
-    const y = [{ name: thirteen ? '国士無双十三面' : '国士無双', power: thirteen && rules.kokushi13Double ? 2 : 1 }];
-    if (hand.isTenhou) y.push({ name: '天和', power: 1 });
-    if (hand.isChiihou) y.push({ name: '地和', power: 1 });
-    candidates.push(finalizeYakuman(hand, y, rules));
-  }
-  // 七対子
-  if (isChiitoiShape(hand.closed, hand.melds)) {
-    const allKinds = hand.closed;
-    if (allKinds.every(isHonor)) {
-      // 字一色だけを入れて帰っていたので、7種の字牌を2枚ずつ持つ形では
-      // 天和・地和が複合しなかった(通常形へ分解されないので逃げ道が無い)
-      const y = [{ name: '字一色', power: 1 }];
-      if (hand.isTenhou) y.push({ name: '天和', power: 1 });
-      else if (hand.isChiihou) y.push({ name: '地和', power: 1 });
-      candidates.push(finalizeYakuman(hand, y, rules));
-    } else {
-      const yaku = [];
-      let han = 0;
-      if (hand.isTenhou) { candidates.push(finalizeYakuman(hand, [{ name: '天和', power: 1 }], rules)); }
-      else if (hand.isChiihou) { candidates.push(finalizeYakuman(hand, [{ name: '地和', power: 1 }], rules)); }
-      if (hand.isDoubleRiichi) { yaku.push({ name: 'ダブル立直', han: 2 }); han += 2; }
-      else if (hand.isRiichi) { yaku.push({ name: '立直', han: 1 }); han += 1; }
-      if (hand.isIppatsu && rules.ippatsu) { yaku.push({ name: '一発', han: 1 }); han += 1; }
-      if (hand.isTsumo) { yaku.push({ name: '門前清自摸和', han: 1 }); han += 1; }
-      if (hand.isHaitei) { yaku.push({ name: '海底摸月', han: 1 }); han += 1; }
-      if (hand.isHoutei) { yaku.push({ name: '河底撈魚', han: 1 }); han += 1; }
-      // 通常形の分岐にはあるのに、ここだけ槍槓を数えていなかった。
-      // 7種の対子だけの形は通常形へ分解されないので、そのまま1翻少なくなる
-      if (hand.isChankan) { yaku.push({ name: '槍槓', han: 1 }); han += 1; }
-      yaku.push({ name: '七対子', han: 2 }); han += 2;
-      if (allKinds.every(isSimple)) { yaku.push({ name: '断幺九', han: 1 }); han += 1; }
-      if (allKinds.every(isYaochu)) { yaku.push({ name: '混老頭', han: 2 }); han += 2; }
-      const suits = new Set(allKinds.filter((k) => !isHonor(k)).map(suitOf));
-      if (suits.size === 1) {
-        if (allKinds.some(isHonor)) { yaku.push({ name: '混一色', han: 3 }); han += 3; }
-        else { yaku.push({ name: '清一色', han: 6 }); han += 6; }
-      }
-      const yakuHan = han;
-      const d = countDora(hand, allKinds);
-      for (const x of d.list) { yaku.push(x); han += x.han; }
-      candidates.push({
-        yaku, yakuman: [], han, yakuHan, fu: 25, waitType: 'tanki', isClosed: true, pinfu: false,
-        fuDetail: [{ label: '七対子', fu: FU_TABLE.chiitoi, note: `七対子は面子の形をしていないので、符を積まず${FU_TABLE.chiitoi}符で固定する` }],
-      });
-    }
-  }
-  // 通常形
-  for (const dec of decompose(hand.closed)) {
-    const allMentsu = [...dec.mentsu, ...melds];
-    for (const pos of winPositions(dec, hand.winTile)) {
-      // ロンで和了牌が刻子を完成させた場合、その刻子は明刻扱い
-      const mentsuCopy = allMentsu.map((m) => ({ ...m }));
-      if (pos.type === 'koutsu' && !hand.isTsumo) mentsuCopy[pos.index].open = true;
-      candidates.push(evaluateDecomposition(hand, mentsuCopy, dec.pair, pos, rules));
-    }
-  }
-  if (!candidates.length) return null;
-  // 役なしは除外(ドラのみは和了不可)
-  const valid = candidates.filter((c) => c.yakuman.length > 0 || c.yakuHan > 0);
-  if (!valid.length) return { noYaku: true, candidates };
-  valid.sort((a, b) => compareScore(b, a));
-  return valid[0];
-}
-
-function compareScore(a, b) {
-  const pa = a.yakuman.length ? 1000 + a.han : a.han * 1000 + a.fu;
-  const pb = b.yakuman.length ? 1000 + b.han : b.han * 1000 + b.fu;
-  // 同翻なら符の高い方、翻優先
-  if (a.yakuman.length !== b.yakuman.length) return a.yakuman.length ? 1 : -1;
-  if (a.han !== b.han) return a.han - b.han;
-  return a.fu - b.fu;
-}
-
-return { decompose, isChiitoiShape, isKokushiShape, FU_TABLE, evaluateHand };
-})();
-
-__m["src/core/score.js"] = (function () {
-// 点数計算
-const { evaluateHand } = __m["src/core/yaku.js"];
-function ceil100(x) { return Math.ceil(x / 100) * 100; }
-
-/** 翻・符 → 基本点(子ロンの1/4)。yakumanPower>0 なら役満 */
-function basePoints(han, fu, rules, yakumanPower = 0) {
-  if (yakumanPower > 0) return { base: 8000 * yakumanPower, label: yakumanPower > 1 ? `${yakumanPower}倍役満` : '役満' };
-  if (han >= 13) {
-    if (rules.kazoeYakuman) return { base: 8000, label: '数え役満' };
-    return { base: 6000, label: '三倍満' };
-  }
-  if (han >= 11) return { base: 6000, label: '三倍満' };
-  if (han >= 8) return { base: 4000, label: '倍満' };
-  if (han >= 6) return { base: 3000, label: '跳満' };
-  if (han >= 5) return { base: 2000, label: '満貫' };
-  let base = fu * Math.pow(2, han + 2);
-  if (base >= 2000) return { base: 2000, label: '満貫' };
-  if (rules.kiriageMangan && ((han === 4 && fu === 30) || (han === 3 && fu === 60))) return { base: 2000, label: '満貫' };
-  return { base, label: '' };
-}
-
-/**
- * 支払い計算
- * @param {object} opts { base, isDealer, isTsumo, players, honba, rules }
- * 返り値: { total, ron, tsumoDealer(親の支払い), tsumoNonDealer(子の支払い), honbaTotal }
- */
-function payments({ base, isDealer, isTsumo, players, honba = 0, rules }) {
-  const res = { total: 0, ron: 0, tsumoDealer: 0, tsumoNonDealer: 0, honbaTotal: 0 };
-  if (!isTsumo) {
-    res.ron = ceil100(base * (isDealer ? 6 : 4));
-    res.honbaTotal = honba * (rules.honbaRon ?? 300);
-    res.total = res.ron + res.honbaTotal;
-    return res;
-  }
-  const others = players - 1;
-  if (players === 4 || rules.tsumoLoss) {
-    if (isDealer) { res.tsumoNonDealer = ceil100(base * 2); res.total = res.tsumoNonDealer * others; }
-    else { res.tsumoDealer = ceil100(base * 2); res.tsumoNonDealer = ceil100(base); res.total = res.tsumoDealer + res.tsumoNonDealer * (others - 1); }
-  } else {
-    // 三麻ツモ損なし: 4人麻雀の支払いに、居ない子の分を2人で按分して加算
-    if (isDealer) {
-      // 親ツモ: 4人なら 2倍×3人。居ない1人分(2倍)を2人で按分 → 各 3倍
-      res.tsumoNonDealer = ceil100(base * 3); res.total = res.tsumoNonDealer * 2;
-    } else {
-      // 子ツモ: 親2倍・子1倍 + 居ない子1倍分を按分(0.5ずつ)
-      res.tsumoDealer = ceil100(base * 2.5); res.tsumoNonDealer = ceil100(base * 1.5);
-      res.total = res.tsumoDealer + res.tsumoNonDealer;
-    }
-  }
-  const each = rules.honbaTsumoEach ?? 100;
-  res.honbaTotal = honba * each * others;
-  res.tsumoDealer += res.tsumoDealer ? honba * each : 0;
-  res.tsumoNonDealer += honba * each;
-  res.total += res.honbaTotal;
-  return res;
-}
-
-/**
- * 手牌を評価して点数まで求める。
- * @param hand yaku.js の手牌構造。加えて isDealer, honba を含める
- */
-function scoreHand(hand, rules) {
-  const ev = evaluateHand(hand, rules);
-  if (!ev) return null;
-  if (ev.noYaku) return { noYaku: true };
-  const bp = basePoints(ev.han, ev.fu, rules, ev.yakumanPower || 0);
-  const pay = payments({ base: bp.base, isDealer: hand.isDealer, isTsumo: hand.isTsumo, players: rules.players, honba: hand.honba || 0, rules });
-  return { ...ev, base: bp.base, label: bp.label, pay, isDealer: hand.isDealer, isTsumo: hand.isTsumo };
-}
-
-/** 点数のみの表記(本場を除く)。例: "3900" / "2000/4000" / "4000オール" */
-function formatScore(res) {
-  const p = res.pay;
-  if (!res.isTsumo) return String(p.ron);
-  if (res.isDealer) return `${p.tsumoNonDealer}オール`;
-  return `${p.tsumoNonDealer}/${p.tsumoDealer}`;
-}
-
-/** 符・翻・満貫以上のラベル。例: "30符4翻" / "40符4翻 満貫" / "役満" / "2倍役満" */
-function formatHanFu(res) {
-  if (res.yakuman?.length) return `${res.yakumanPower > 1 ? res.yakumanPower + '倍' : ''}役満`;
-  return `${res.fu}符${res.han}翻${res.label ? ' ' + res.label : ''}`;
-}
-
-/** 手役名の一覧。例: "立直 門前清自摸和 平和 ドラ2" / "国士無双十三面" */
-function formatYaku(res) {
-  if (res.yakuman?.length) return res.yakuman.map((y) => y.name).join('・');
-  return res.yaku.map((y) => `${y.name}${y.han > 1 ? ' ' + y.han : ''}`).join('、');
-}
-
-/** 点数早見表(子ロン基準)を作る: 符×翻 → 点 */
-function scoreTable(rules) {
-  const fus = [20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110];
-  const table = {};
-  for (const fu of fus) {
-    table[fu] = {};
-    for (let han = 1; han <= 4; han++) {
-      const bp = basePoints(han, fu, rules);
-      table[fu][han] = {
-        childRon: ceil100(bp.base * 4), dealerRon: ceil100(bp.base * 6),
-        childTsumo: `${ceil100(bp.base)}/${ceil100(bp.base * 2)}`, dealerTsumo: `${ceil100(bp.base * 2)}オール`,
-      };
-    }
-  }
-  return table;
-}
-
-return { ceil100, basePoints, payments, scoreHand, formatScore, formatHanFu, formatYaku, scoreTable };
-})();
-
 __m["src/core/blocks.js"] = (function () {
 // 手牌をブロック(面子・塔子・対子)に分けて、残るブロックの質を点にする
 //
@@ -9193,6 +9269,20 @@ const DEFAULT_AI_PARAMS = {
   callEvDecision: 0,
   callEvMargin: 0,
 
+  // ---- 親の流局時の聴牌に連荘の価値を足す(点、0=切、A/B は 1000)----
+  // 親のとき、tenpaiEndDiscard の局収支の項(聴牌料の期待値 TENPAI_FEE x 聴牌する確率)の額に dealerTenpaiBonus を足す。
+  // 集計(59): 流局で親が聴牌して連荘した次の局の親の収支は、流れた場合より +1,000 ± 387点。keitenLate の鳴きは額を見ないので変わらない
+  dealerTenpaiBonus: 0,
+
+  // ---- 副露の聴牌の和了率を状態別の表で引く(0〜1)----
+  // evaluate.js の聴牌の和了率を、副露の手のときは集計(60)の表(形 x 巡目 x 待ち枚数 x ロンの役の有無、src/data/winRateStateTable.js。
+  // 件数 50 未満のマスはリーチの表のまま)で引く(w でリーチの表と混ぜる)。門前の手はリーチの表のまま(リーチするかダマかは打牌の時点で決まっていない)
+  winRateByState: 0,
+
+  // ---- 鳴く前の向聴を一般形で測るのを、役牌ポン以外のポン・チーにも広げる(0=切、1=入)----
+  // callStdShanten=1 が前提(両方立てる)。claimByShape の役牌以外のポンとチーで、鳴く前の向聴を shantenStandard で測る
+  callStdShantenAll: 0,
+
   // ---- 形のティアで完全な同点を割る(0=切、1=入)----
   // evalMode=1 の牌効率の枝で、打牌後の向聴が1以上、牌効率のスコアと受け入れ枚数が完全に同点の
   // 候補が2つ以上あるときだけ、その中で一番低いティアの形から切る(src/core/shapeTier.js)。
@@ -9287,6 +9377,9 @@ const PARAM_RANGES = {
   riichiValueCalib: [0, 1, 0.5],
   callEvDecision: [0, 1, 1],
   callEvMargin: [0, 2000, 500],
+  dealerTenpaiBonus: [0, 3000, 500],
+  winRateByState: [0, 1, 0.5],
+  callStdShantenAll: [0, 1, 1],
   shapeTierTie: [0, 1, 1],
   keitenLate: [0, 1, 1],
   riichiTileRead: [0, 1, 0.5],
@@ -9410,7 +9503,7 @@ function validateGroups() {
  *   evalMode / lookaheadTop … 評価方法そのものの切り替え(数値の微調整ではない)
  *   goodShapeWeight / goodShapeTop … 0以外にすると1手先読みが走る(コストは tools/bench.mjs)
  */
-const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin'];
+const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll'];
 
 /**
  * 三麻でしか使われない係数(ai.js の game.P === 3 の分岐)。
@@ -9516,6 +9609,9 @@ const GATED_BY = {
   riichiValueCalib: { any: ['valueWeight', 'rankEvWeight', 'evalMode'] },
   callEvDecision: { all: ['evalMode'] },
   callEvMargin: { all: ['evalMode', 'callEvDecision'] },
+  dealerTenpaiBonus: { all: ['evalMode', 'tenpaiEndDiscard'] },
+  winRateByState: { all: ['evalMode'] },
+  callStdShantenAll: { all: ['callStdShanten'] },
 };
 
 /**
@@ -10485,7 +10581,7 @@ const { blockQuality, blockProfile } = __m["src/core/blocks.js"];
 const { DEFAULT_AI_PARAMS, TABLE_PARAMS } = __m["src/core/aiParams.js"];
 const { notHeldExpect } = __m["src/core/wallRead.js"];
 const { tileTiers } = __m["src/core/shapeTier.js"];
-const { remainingDraws, keitenAfterCall, callForbidden } = __m["src/core/keiten.js"];
+const { remainingDraws, keitenAfterCall, callForbidden, TENPAI_FEE } = __m["src/core/keiten.js"];
 const { riichiDeclOf } = __m["src/core/riichiRead.js"];
 const { determinize, mulberry32 } = __m["src/core/determinize.js"];
 const { publicCounts, outLikelyFactor, categoryOf: outCategoryOf, genbutsuOf: selfGenbutsuOf } = __m["src/core/outLikely.js"];
@@ -10700,6 +10796,10 @@ function discardEvalArgs(game, seat, p, counts, meldsArr, visible, threats) {
     meldHanFix: p.meldHanFix,
     // 打点見込みを区分ごとの実測で補正する(hanEstimateFix。0 なら渡さない。表は src/data/hanEstimateCalibTable.js)
     hanFix: p.hanEstimateFix > 0 && game.hanCalib ? { table: game.hanCalib, w: Math.min(1, p.hanEstimateFix) } : null,
+    // 副露の聴牌の和了率を状態別の表で引く(winRateByState。0 なら渡さない。表は src/data/winRateStateTable.js)
+    winState: p.winRateByState > 0 && game.winRateState
+      ? { table: game.winRateState, w: Math.min(1, p.winRateByState), seatWind: game.seatWind(seat), roundWind: game.roundWind(), isDealer: seat === st.dealer, rules: game.rules }
+      : null,
     // 聴牌の和了率の見積もりの待ち枚数を山読みで(wallAwareWinRate。0 なら渡さない)
     // wallAwareWinRateScaled は同じ枚数を巡目の帯ごとの尺度で割ってから渡す(こちらが立っていればこちらを使う)
     waitEff: p.wallAwareWinRateScaled > 0 ? scaledWaitEff(game, seat, visible)
@@ -11262,7 +11362,8 @@ function claimByShape(game, seat, options, p) {
     const c2 = counts.slice(); c2[tile.kind] -= 2;
     const best = evalCall(c2, s.melds.length + 1);
     // 鳴いた後は一般形しか無いので、役牌のポンでは鳴く前の向聴も一般形だけで測ってそろえる(callStdShanten。0 なら七対子・国士を含む最小値)
-    const curPon = p.callStdShanten > 0 && yakuhai ? shantenStandard(counts, s.melds.length) : cur;
+    // callStdShantenAll を立てると役牌以外のポンにも同じ測り方を使う(callStdShanten が前提)
+    const curPon = p.callStdShanten > 0 && (yakuhai || p.callStdShantenAll > 0) ? shantenStandard(counts, s.melds.length) : cur;
     const improves = best.shanten < curPon;
     const hasYaku = yakuhai || isOpen || hasYakuSource(game, seat, counts, s.melds, tile.kind);
     // 役の目処があれば2向聴からの前進も鳴く(ただし2向聴は受け入れが十分あるときだけ)
@@ -11276,12 +11377,14 @@ function claimByShape(game, seat, options, p) {
   }
   if (options.chi.length) {
     let bestChi = null;
+    // チーも鳴く前の向聴を一般形だけで測る(callStdShantenAll。callStdShanten が前提。0 なら七対子・国士を含む最小値)
+    const curChi = p.callStdShantenAll > 0 && p.callStdShanten > 0 ? shantenStandard(counts, s.melds.length) : cur;
     for (const combo of options.chi) {
       const c2 = counts.slice(); for (const k of combo) c2[k]--;
       const best = evalCall(c2, s.melds.length + 1);
       const hasYaku = isOpen || hasYakuSource(game, seat, counts, s.melds, tile.kind);
       const worthIt = best.shanten <= 1 || (best.shanten === 2 && best.total >= p.chiFarUkeire && turnLeft(game) > p.chiFarTurnLeft);
-      if (best.shanten < cur && hasYaku && worthIt) {
+      if (best.shanten < curChi && hasYaku && worthIt) {
         if (!bestChi || best.total > bestChi.total) bestChi = { combo, total: best.total, shanten: best.shanten };
       }
     }
@@ -11403,11 +11506,15 @@ function foldKeitenFront(withDanger, eps) {
   withDanger.unshift(best);
 }
 
-/** 残りツモ6以下なら { w, draws }。それ以外は null(evaluateDiscards は何も足さない) */
+/**
+ * 残りツモ6以下なら { w, draws, fee }。それ以外は null(evaluateDiscards は何も足さない)。
+ * fee は聴牌料の期待値(TENPAI_FEE)。親なら連荘の価値 dealerTenpaiBonus(点。0 なら足さない)を足す
+ */
 function tenpaiEndCtx(game, seat, p) {
   if (!(p.tenpaiEndDiscard > 0)) return null;
   const draws = remainingDraws(game.wallCount(), seat, seat, game.P);
-  return draws <= 6 ? { w: Math.min(1, p.tenpaiEndDiscard), draws } : null;
+  const fee = TENPAI_FEE + (p.dealerTenpaiBonus > 0 && seat === game.state.dealer ? p.dealerTenpaiBonus : 0);
+  return draws <= 6 ? { w: Math.min(1, p.tenpaiEndDiscard), draws, fee } : null;
 }
 
 /**
@@ -11741,7 +11848,7 @@ function effScorer(top, { game, seat, p, counts, melds, visible, bestShanten, ca
   return (c) => base(c) + (c._effGoodRate ?? 50) * p.goodShapeWeight / 100;
 }
 
-return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, foldKeitenFront, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
+return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, foldKeitenFront, tenpaiEndCtx, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
 })();
 
 __m["src/core/tenpai.js"] = (function () {
@@ -13662,6 +13769,551 @@ function riichiValueFor(rule) {
 return { RIICHI_VALUE, riichiValueFor };
 })();
 
+__m["src/data/winRateStateTable.js"] = (function () {
+// 聴牌の和了率の表(状態別)—— tools/make-win-rate-state.mjs が生成。手で編集しないこと
+//
+// 実体は data/win-rate-state.<ルール>.json(tools/win-rate-state-survey.mjs --emit の実測)。マスの名前は src/core/winRateState.js。
+// 使うのは係数 winRateByState(evaluate.js の聴牌の和了率)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const WIN_RATE_STATE = {
+ "mleague": {
+  "generation": 4,
+  "hanchan": 1200,
+  "seedFrom": 322000000,
+  "seedTo": 322001199,
+  "measuredAt": "2026-10-02",
+  "cells": {
+   "chase|bad|t10_12|w0_4|noyaku": {
+    "n": 365,
+    "ratePct": 33.7
+   },
+   "chase|bad|t10_12|w0_4|yaku": {
+    "n": 330,
+    "ratePct": 30
+   },
+   "chase|bad|t13_15|w0_4|noyaku": {
+    "n": 192,
+    "ratePct": 25.52
+   },
+   "chase|bad|t13_15|w0_4|yaku": {
+    "n": 224,
+    "ratePct": 22.77
+   },
+   "chase|bad|t16|w0_4|noyaku": {
+    "n": 34,
+    "ratePct": 20.59
+   },
+   "chase|bad|t16|w0_4|yaku": {
+    "n": 36,
+    "ratePct": 13.89
+   },
+   "chase|bad|t1_3|w0_4|noyaku": {
+    "n": 3,
+    "ratePct": 0
+   },
+   "chase|bad|t1_3|w0_4|yaku": {
+    "n": 3,
+    "ratePct": 33.33
+   },
+   "chase|bad|t4_6|w0_4|noyaku": {
+    "n": 76,
+    "ratePct": 42.11
+   },
+   "chase|bad|t4_6|w0_4|yaku": {
+    "n": 43,
+    "ratePct": 37.21
+   },
+   "chase|bad|t7_9|w0_4|noyaku": {
+    "n": 299,
+    "ratePct": 30.43
+   },
+   "chase|bad|t7_9|w0_4|yaku": {
+    "n": 211,
+    "ratePct": 35.55
+   },
+   "chase|good|t10_12|w5_8|noyaku": {
+    "n": 147,
+    "ratePct": 49.66
+   },
+   "chase|good|t10_12|w5_8|yaku": {
+    "n": 247,
+    "ratePct": 39.68
+   },
+   "chase|good|t10_12|w9|noyaku": {
+    "n": 3,
+    "ratePct": 66.67
+   },
+   "chase|good|t10_12|w9|yaku": {
+    "n": 8,
+    "ratePct": 75
+   },
+   "chase|good|t13_15|w5_8|noyaku": {
+    "n": 63,
+    "ratePct": 28.57
+   },
+   "chase|good|t13_15|w5_8|yaku": {
+    "n": 142,
+    "ratePct": 29.58
+   },
+   "chase|good|t13_15|w9|yaku": {
+    "n": 3,
+    "ratePct": 100
+   },
+   "chase|good|t16|w5_8|noyaku": {
+    "n": 20,
+    "ratePct": 10
+   },
+   "chase|good|t16|w5_8|yaku": {
+    "n": 43,
+    "ratePct": 23.26
+   },
+   "chase|good|t16|w9|noyaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "chase|good|t16|w9|yaku": {
+    "n": 2,
+    "ratePct": 50
+   },
+   "chase|good|t1_3|w5_8|yaku": {
+    "n": 3,
+    "ratePct": 33.33
+   },
+   "chase|good|t4_6|w5_8|noyaku": {
+    "n": 29,
+    "ratePct": 41.38
+   },
+   "chase|good|t4_6|w5_8|yaku": {
+    "n": 49,
+    "ratePct": 51.02
+   },
+   "chase|good|t4_6|w9|noyaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "chase|good|t4_6|w9|yaku": {
+    "n": 4,
+    "ratePct": 25
+   },
+   "chase|good|t7_9|w5_8|noyaku": {
+    "n": 128,
+    "ratePct": 39.84
+   },
+   "chase|good|t7_9|w5_8|yaku": {
+    "n": 216,
+    "ratePct": 49.54
+   },
+   "chase|good|t7_9|w9|noyaku": {
+    "n": 6,
+    "ratePct": 16.67
+   },
+   "chase|good|t7_9|w9|yaku": {
+    "n": 5,
+    "ratePct": 80
+   },
+   "dama|bad|t10_12|w0_4|noyaku": {
+    "n": 61,
+    "ratePct": 19.67
+   },
+   "dama|bad|t10_12|w0_4|yaku": {
+    "n": 70,
+    "ratePct": 21.43
+   },
+   "dama|bad|t13_15|w0_4|noyaku": {
+    "n": 70,
+    "ratePct": 4.29
+   },
+   "dama|bad|t13_15|w0_4|yaku": {
+    "n": 80,
+    "ratePct": 13.75
+   },
+   "dama|bad|t16|w0_4|noyaku": {
+    "n": 70,
+    "ratePct": 2.86
+   },
+   "dama|bad|t16|w0_4|yaku": {
+    "n": 199,
+    "ratePct": 11.56
+   },
+   "dama|bad|t1_3|w0_4|noyaku": {
+    "n": 2,
+    "ratePct": 50
+   },
+   "dama|bad|t1_3|w0_4|yaku": {
+    "n": 2,
+    "ratePct": 50
+   },
+   "dama|bad|t4_6|w0_4|noyaku": {
+    "n": 13,
+    "ratePct": 30.77
+   },
+   "dama|bad|t4_6|w0_4|yaku": {
+    "n": 17,
+    "ratePct": 58.82
+   },
+   "dama|bad|t7_9|w0_4|noyaku": {
+    "n": 36,
+    "ratePct": 22.22
+   },
+   "dama|bad|t7_9|w0_4|yaku": {
+    "n": 51,
+    "ratePct": 37.25
+   },
+   "dama|good|t10_12|w5_8|noyaku": {
+    "n": 3,
+    "ratePct": 33.33
+   },
+   "dama|good|t10_12|w5_8|yaku": {
+    "n": 9,
+    "ratePct": 55.56
+   },
+   "dama|good|t13_15|w5_8|noyaku": {
+    "n": 2,
+    "ratePct": 0
+   },
+   "dama|good|t13_15|w5_8|yaku": {
+    "n": 4,
+    "ratePct": 0
+   },
+   "dama|good|t16|w5_8|noyaku": {
+    "n": 4,
+    "ratePct": 25
+   },
+   "dama|good|t16|w5_8|yaku": {
+    "n": 13,
+    "ratePct": 7.69
+   },
+   "dama|good|t16|w9|yaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "dama|good|t1_3|w5_8|yaku": {
+    "n": 1,
+    "ratePct": 100
+   },
+   "dama|good|t4_6|w5_8|noyaku": {
+    "n": 4,
+    "ratePct": 0
+   },
+   "dama|good|t4_6|w5_8|yaku": {
+    "n": 17,
+    "ratePct": 76.47
+   },
+   "dama|good|t4_6|w9|yaku": {
+    "n": 3,
+    "ratePct": 66.67
+   },
+   "dama|good|t7_9|w5_8|noyaku": {
+    "n": 7,
+    "ratePct": 28.57
+   },
+   "dama|good|t7_9|w5_8|yaku": {
+    "n": 17,
+    "ratePct": 64.71
+   },
+   "dama|good|t7_9|w9|noyaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "dama|good|t7_9|w9|yaku": {
+    "n": 2,
+    "ratePct": 100
+   },
+   "open|bad|t10_12|w0_4|noyaku": {
+    "n": 726,
+    "ratePct": 5.79
+   },
+   "open|bad|t10_12|w0_4|yaku": {
+    "n": 1363,
+    "ratePct": 39.25
+   },
+   "open|bad|t13_15|w0_4|noyaku": {
+    "n": 484,
+    "ratePct": 2.89
+   },
+   "open|bad|t13_15|w0_4|yaku": {
+    "n": 604,
+    "ratePct": 32.78
+   },
+   "open|bad|t16|w0_4|noyaku": {
+    "n": 296,
+    "ratePct": 1.69
+   },
+   "open|bad|t16|w0_4|yaku": {
+    "n": 218,
+    "ratePct": 14.22
+   },
+   "open|bad|t1_3|w0_4|noyaku": {
+    "n": 59,
+    "ratePct": 8.47
+   },
+   "open|bad|t1_3|w0_4|yaku": {
+    "n": 134,
+    "ratePct": 65.67
+   },
+   "open|bad|t4_6|w0_4|noyaku": {
+    "n": 616,
+    "ratePct": 9.9
+   },
+   "open|bad|t4_6|w0_4|yaku": {
+    "n": 1188,
+    "ratePct": 55.64
+   },
+   "open|bad|t7_9|w0_4|noyaku": {
+    "n": 1022,
+    "ratePct": 6.16
+   },
+   "open|bad|t7_9|w0_4|yaku": {
+    "n": 1993,
+    "ratePct": 44.76
+   },
+   "open|good|t10_12|w5_8|noyaku": {
+    "n": 605,
+    "ratePct": 4.3
+   },
+   "open|good|t10_12|w5_8|yaku": {
+    "n": 1045,
+    "ratePct": 52.92
+   },
+   "open|good|t10_12|w9|noyaku": {
+    "n": 20,
+    "ratePct": 0
+   },
+   "open|good|t10_12|w9|yaku": {
+    "n": 33,
+    "ratePct": 72.73
+   },
+   "open|good|t13_15|w5_8|noyaku": {
+    "n": 260,
+    "ratePct": 5.77
+   },
+   "open|good|t13_15|w5_8|yaku": {
+    "n": 328,
+    "ratePct": 51.83
+   },
+   "open|good|t13_15|w9|noyaku": {
+    "n": 5,
+    "ratePct": 0
+   },
+   "open|good|t13_15|w9|yaku": {
+    "n": 7,
+    "ratePct": 42.86
+   },
+   "open|good|t16|w5_8|noyaku": {
+    "n": 116,
+    "ratePct": 6.9
+   },
+   "open|good|t16|w5_8|yaku": {
+    "n": 97,
+    "ratePct": 37.11
+   },
+   "open|good|t16|w9|noyaku": {
+    "n": 2,
+    "ratePct": 0
+   },
+   "open|good|t16|w9|yaku": {
+    "n": 4,
+    "ratePct": 25
+   },
+   "open|good|t1_3|w5_8|noyaku": {
+    "n": 52,
+    "ratePct": 1.92
+   },
+   "open|good|t1_3|w5_8|yaku": {
+    "n": 76,
+    "ratePct": 77.63
+   },
+   "open|good|t1_3|w9|noyaku": {
+    "n": 4,
+    "ratePct": 0
+   },
+   "open|good|t1_3|w9|yaku": {
+    "n": 4,
+    "ratePct": 75
+   },
+   "open|good|t4_6|w5_8|noyaku": {
+    "n": 489,
+    "ratePct": 9.2
+   },
+   "open|good|t4_6|w5_8|yaku": {
+    "n": 756,
+    "ratePct": 75.13
+   },
+   "open|good|t4_6|w9|noyaku": {
+    "n": 25,
+    "ratePct": 0
+   },
+   "open|good|t4_6|w9|yaku": {
+    "n": 36,
+    "ratePct": 80.56
+   },
+   "open|good|t7_9|w5_8|noyaku": {
+    "n": 945,
+    "ratePct": 6.03
+   },
+   "open|good|t7_9|w5_8|yaku": {
+    "n": 1431,
+    "ratePct": 64.64
+   },
+   "open|good|t7_9|w9|noyaku": {
+    "n": 25,
+    "ratePct": 4
+   },
+   "open|good|t7_9|w9|yaku": {
+    "n": 47,
+    "ratePct": 65.96
+   },
+   "riichi|bad|t10_12|w0_4|noyaku": {
+    "n": 860,
+    "ratePct": 31.05
+   },
+   "riichi|bad|t10_12|w0_4|yaku": {
+    "n": 653,
+    "ratePct": 35.53
+   },
+   "riichi|bad|t13_15|w0_4|noyaku": {
+    "n": 361,
+    "ratePct": 20.78
+   },
+   "riichi|bad|t13_15|w0_4|yaku": {
+    "n": 287,
+    "ratePct": 26.13
+   },
+   "riichi|bad|t16|w0_4|noyaku": {
+    "n": 53,
+    "ratePct": 15.09
+   },
+   "riichi|bad|t16|w0_4|yaku": {
+    "n": 68,
+    "ratePct": 14.71
+   },
+   "riichi|bad|t1_3|w0_4|noyaku": {
+    "n": 218,
+    "ratePct": 56.88
+   },
+   "riichi|bad|t1_3|w0_4|yaku": {
+    "n": 123,
+    "ratePct": 45.53
+   },
+   "riichi|bad|t4_6|w0_4|noyaku": {
+    "n": 1192,
+    "ratePct": 47.99
+   },
+   "riichi|bad|t4_6|w0_4|yaku": {
+    "n": 659,
+    "ratePct": 49.01
+   },
+   "riichi|bad|t7_9|w0_4|noyaku": {
+    "n": 1542,
+    "ratePct": 40.99
+   },
+   "riichi|bad|t7_9|w0_4|yaku": {
+    "n": 908,
+    "ratePct": 40.86
+   },
+   "riichi|good|t10_12|w5_8|noyaku": {
+    "n": 253,
+    "ratePct": 53.75
+   },
+   "riichi|good|t10_12|w5_8|yaku": {
+    "n": 458,
+    "ratePct": 48.25
+   },
+   "riichi|good|t10_12|w9|noyaku": {
+    "n": 9,
+    "ratePct": 55.56
+   },
+   "riichi|good|t10_12|w9|yaku": {
+    "n": 17,
+    "ratePct": 82.35
+   },
+   "riichi|good|t13_15|w5_8|noyaku": {
+    "n": 82,
+    "ratePct": 40.24
+   },
+   "riichi|good|t13_15|w5_8|yaku": {
+    "n": 138,
+    "ratePct": 35.51
+   },
+   "riichi|good|t13_15|w9|noyaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "riichi|good|t13_15|w9|yaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "riichi|good|t16|w5_8|noyaku": {
+    "n": 19,
+    "ratePct": 10.53
+   },
+   "riichi|good|t16|w5_8|yaku": {
+    "n": 27,
+    "ratePct": 22.22
+   },
+   "riichi|good|t16|w9|yaku": {
+    "n": 2,
+    "ratePct": 0
+   },
+   "riichi|good|t1_3|w5_8|noyaku": {
+    "n": 51,
+    "ratePct": 76.47
+   },
+   "riichi|good|t1_3|w5_8|yaku": {
+    "n": 81,
+    "ratePct": 75.31
+   },
+   "riichi|good|t1_3|w9|noyaku": {
+    "n": 1,
+    "ratePct": 0
+   },
+   "riichi|good|t1_3|w9|yaku": {
+    "n": 13,
+    "ratePct": 92.31
+   },
+   "riichi|good|t4_6|w5_8|noyaku": {
+    "n": 267,
+    "ratePct": 70.04
+   },
+   "riichi|good|t4_6|w5_8|yaku": {
+    "n": 565,
+    "ratePct": 69.2
+   },
+   "riichi|good|t4_6|w9|noyaku": {
+    "n": 15,
+    "ratePct": 80
+   },
+   "riichi|good|t4_6|w9|yaku": {
+    "n": 48,
+    "ratePct": 66.67
+   },
+   "riichi|good|t7_9|w5_8|noyaku": {
+    "n": 417,
+    "ratePct": 58.03
+   },
+   "riichi|good|t7_9|w5_8|yaku": {
+    "n": 836,
+    "ratePct": 57.78
+   },
+   "riichi|good|t7_9|w9|noyaku": {
+    "n": 20,
+    "ratePct": 85
+   },
+   "riichi|good|t7_9|w9|yaku": {
+    "n": 42,
+    "ratePct": 76.19
+   }
+  }
+ }
+};
+
+/** そのルールの表。無ければ null(係数は効かない) */
+function winRateStateFor(rule) {
+  return WIN_RATE_STATE[rule] || null;
+}
+
+return { WIN_RATE_STATE, winRateStateFor };
+})();
+
 __m["src/core/game.js"] = (function () {
 // 対局エンジン(四人麻雀 Mリーグルール / 三人麻雀 関西三麻)
 const { toCounts, doraFromIndicator, sortTiles, isHonor, isDragon, isWind, NORTH, kindToName } = __m["src/core/tiles.js"];
@@ -13688,6 +14340,7 @@ const { callableOutLikelyFor } = __m["src/data/callableOutLikelyTable.js"];
 const { doraDangerFor } = __m["src/data/doraDangerTable.js"];
 const { hanEstimateCalibFor } = __m["src/data/hanEstimateCalibTable.js"];
 const { riichiValueFor } = __m["src/data/riichiValueTable.js"];
+const { winRateStateFor } = __m["src/data/winRateStateTable.js"];
 const WIND_NAMES = ['東', '南', '西', '北'];
 // 王牌は14枚で固定(docs/research-rules.md)。先頭4枚が嶺上牌、その後ろがドラ表示。
 // 補充のたびに山の最後の牌を末尾へ足すので、5回目以降の嶺上牌は**末尾側**にある
@@ -13745,6 +14398,8 @@ class Game {
     this.hanCalib = opts.hanCalib !== undefined ? opts.hanCalib : hanEstimateCalibFor(rules.id);
     // リーチ者の打点の表(src/data/riichiValueTable.js)。使うのは riichiValueCalib > 0 のときだけ
     this.riichiValue = opts.riichiValue !== undefined ? opts.riichiValue : riichiValueFor(rules.id);
+    // 状態別の和了率の表(src/data/winRateStateTable.js)。使うのは winRateByState > 0 のときだけ
+    this.winRateState = opts.winRateState !== undefined ? opts.winRateState : winRateStateFor(rules.id);
     // 和了率の校正表(tools/winrate-calib.mjs --emit)。渡されなければ校正しない
     this.winCal = opts.winCal || null;
     // **表が要る係数なのに表が無い**と、測ったときと違う打ち筋で動く。
@@ -16249,6 +16904,9 @@ const GENERATIONS = {
             "riichiValueCalib": 0,
             "callEvDecision": 0,
             "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16342,6 +17000,9 @@ const GENERATIONS = {
             "riichiValueCalib": 0,
             "callEvDecision": 0,
             "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16435,6 +17096,9 @@ const GENERATIONS = {
             "riichiValueCalib": 0,
             "callEvDecision": 0,
             "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16528,6 +17192,9 @@ const GENERATIONS = {
             "riichiValueCalib": 0,
             "callEvDecision": 0,
             "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
             "shapeTierTie": 0,
             "keitenLate": 1,
             "riichiTileRead": 1,
@@ -16627,6 +17294,9 @@ const GENERATIONS = {
             "riichiValueCalib": 0,
             "callEvDecision": 0,
             "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -19910,6 +20580,8 @@ __m["src/ui/report.js"] = (function () {
 //
 // どの画面でも、同じ場所を1秒以内に3回タップすると、その場の画面を撮って報告の窓を開く。
 // 送り先は画面に出さない。アプリの中で書いて「送信」を押すだけで届く。
+// 届け先は Firebase(Firestore の reports)。CS 役がそこから拾い、処理したら消す(docs/cs.md、人の決定 2026-10-03)。
+// Firebase が使えないとき(読み込めなかった・Artifact の中)だけ、下の FormSubmit でメールに送る。
 // メールにするのは FormSubmit(formsubmit.co。サーバーを持たずにメールへ転送する無料の窓口)。
 // 最初の1通で、受け取る側に「有効にしますか」のメールが届き、それを押すと以降が届くようになる。
 // 返信できるように、送った人のアカウント(名前・メール・uid)を必ず添え、返信先(_replyto)にもする。
@@ -19917,7 +20589,7 @@ __m["src/ui/report.js"] = (function () {
 //
 // 画面の撮影はブラウザに機能が無いので、html-to-image(CDN)で画面を絵に描き直す。
 // 立体(3D)の部分など、実際の見た目と少し違って写ることがある。
-const { authState } = __m["src/ui/cloud.js"];
+const { authState, cloudReady, saveReport } = __m["src/ui/cloud.js"];
 const REPORT_TO = 't.iida.demos@gmail.com';
 const SUBJECT_TAG = '[バグ報告・改善要望]';
 const LIB = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js';
@@ -20047,6 +20719,53 @@ async function send(fields, shot) {
   try { return await post({ ...fields, スクショ: shot ? 'この端末では添付できませんでした' : 'なし' }, null); } catch (e) { return { ok: false, kind: 'network', msg: String(e?.message || e) }; }
 }
 
+/** Firestore に置く1件。キーは規則(docs/cs.md の firestore.rules)と同じ並びにする。純粋関数(テスト対象) */
+const REPORT_KEYS = ['status', 'kind', 'text', 'name', 'email', 'replyTo', 'uid', 'screen', 'at', 'size', 'standalone', 'ua', 'shot'];
+function reportDoc(info, shot) {
+  const u = info.user;
+  return {
+    status: 'new',
+    kind: info.kind === '改善要望' ? '改善要望' : 'バグ',
+    text: String(info.text || '').trim().slice(0, 4000),
+    name: u?.name || '',
+    email: u?.email || '',
+    replyTo: String(info.replyTo || '').trim().slice(0, 200),
+    uid: u?.uid || '',
+    screen: String(info.screen || '').slice(0, 200),
+    at: String(info.now || ''),
+    size: String(info.size || ''),
+    standalone: !!info.standalone,
+    ua: String(info.ua || '').slice(0, 400),
+    shot: shot || '',
+  };
+}
+
+/** スクショを Firestore の1件(1MB まで)に収まる大きさに縮める */
+const SHOT_MAX = 800000;
+async function shrinkShot(dataUrl) {
+  if (!dataUrl || dataUrl.length <= SHOT_MAX) return dataUrl || '';
+  const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = dataUrl; });
+  let scale = Math.sqrt(SHOT_MAX / dataUrl.length) * 0.95, out = dataUrl;
+  for (let k = 0; k < 5 && out.length > SHOT_MAX; k++, scale *= 0.8) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    out = c.toDataURL('image/jpeg', 0.6);
+  }
+  return out.length <= SHOT_MAX ? out : '';
+}
+
+/** 届ける。Firebase に置ければそれで終わり。置けなければメール(FormSubmit)へ */
+async function deliver(info, shot) {
+  if (cloudReady()) {
+    try {
+      await saveReport(reportDoc(info, await shrinkShot(shot)));
+      return { ok: true };
+    } catch (e) { /* 下のメールへ */ }
+  }
+  return send(reportFields(info), shot);
+}
+
 // 送れなかった報告は端末に取っておき、次にアプリを開いたときに送り直す(最大5件)。
 // スクショも一緒に取っておく(入りきらなければスクショだけ外す)
 const QUEUE_KEY = 'mahjong-report-queue';
@@ -20061,9 +20780,8 @@ async function flushQueue() {
   if (!q.length) return;
   const left = [];
   for (const item of q) {
-    // 前の版は項目だけを入れていた({ fields, shot } でない)
-    const fields = item.fields || item, shot = item.fields ? item.shot : null;
-    const r = await send(fields, shot);
+    // 前の版は項目だけ・{ fields, shot } を入れていた。それはメールで送る
+    const r = item.info ? await deliver(item.info, item.shot) : await send(item.fields || item, item.fields ? item.shot : null);
     if (!r.ok) left.push(item);
   }
   writeQueue(left);
@@ -20097,15 +20815,15 @@ async function openReport() {
   const reply = user ? null : el('input', { class: 'bug-reply', type: 'email', placeholder: '返信がほしいときはメールアドレス(任意)' });
   const sendBtn = el('button', { type: 'button', class: 'bug-send main', text: '送信' });
   sendBtn.addEventListener('click', async () => {
-    const fields = reportFields({
+    const info = {
       kind, text: area.value, user, replyTo: reply?.value.trim() || '',
       screen: location.hash || '#/', now: new Date().toLocaleString('ja-JP'),
       size: `${window.innerWidth}x${window.innerHeight} (x${window.devicePixelRatio || 1})`,
       standalone: !!(window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone),
       ua: navigator.userAgent,
-    });
+    };
     sendBtn.disabled = true; status.textContent = '送信中…'; status.className = 'bug-status';
-    const r = await send(fields, shot);
+    const r = await deliver(info, shot);
     if (r.ok) {
       status.textContent = '送りました。ありがとうございます';
       status.className = 'bug-status ok';
@@ -20113,7 +20831,7 @@ async function openReport() {
       return;
     }
     // 送れなかった分はスクショごと取っておき、あとで自動で送り直す
-    writeQueue([...readQueue(), { fields, shot }]);
+    writeQueue([...readQueue(), { info, shot }]);
     status.className = 'bug-status err';
     status.textContent = r.kind === 'activation'
       ? '受け取り窓口の有効化待ちです。この報告は端末に取っておき、有効化のあとに自動で送ります'
@@ -20140,7 +20858,8 @@ async function openReport() {
 /** 3回タップを見張る。同じ場所(40px 以内)を1秒以内に3回 */
 function initReport() {
   // 前に送れなかった報告があれば、少し待ってから送り直す
-  setTimeout(() => { flushQueue().catch(() => {}); }, 4000);
+  // ログインの読み込み(Firebase)が終わってからにする
+  setTimeout(() => { flushQueue().catch(() => {}); }, 12000);
   let taps = [];
   document.addEventListener('pointerdown', (e) => {
     if (e.target.closest?.('.bug-bg')) return;
@@ -20151,7 +20870,7 @@ function initReport() {
   }, true);
 }
 
-return { REPORT_TO, SUBJECT_TAG, reportSubject, reportFields, classifyReply, initReport };
+return { REPORT_TO, SUBJECT_TAG, reportSubject, reportFields, classifyReply, REPORT_KEYS, reportDoc, initReport };
 })();
 
 __m["src/ui/app.js"] = (function () {
