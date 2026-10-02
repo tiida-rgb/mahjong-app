@@ -1362,7 +1362,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <main id="app"></main>
 <footer class="footer">評価に使う基準値は <a href="#/data">データ集</a> にまとめています。数値は2026年9月時点の当アプリ独自の推定を含みます。</footer>
 <script>
-// 93 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
+// 95 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
 // 元のソースは src/ 以下を参照。
 (function () {
   'use strict';
@@ -9159,6 +9159,11 @@ const DEFAULT_AI_PARAMS = {
   // (a) ダマでは上がらずリーチなら上がる → リーチ / (b) ダマで上がる → ダマ(リーチなら2つ以上上がり、ダマより上に届くなら規則のまま)/ (c) どちらでも上がらない → 規則のまま
   allLastRiichiNeed: 0,
 
+  // ---- リーチ者の打点を自己対戦の表で引く(0〜1)----
+  // threatContexts のリーチ者の value(stats.js の定数 子 7,000 / 親 10,000)を、集計(57)の和了の打点(ロン。親子 x 表示牌 x 宣言巡目、
+  // src/data/riichiValueTable.js。件数 50 未満のマスは親子のロン全体)に置き換える(w で定数と混ぜる)。value を読むのは valueWeight / rankEvWeight 系
+  riichiValueCalib: 0,
+
   // ---- 形のティアで完全な同点を割る(0=切、1=入)----
   // evalMode=1 の牌効率の枝で、打牌後の向聴が1以上、牌効率のスコアと受け入れ枚数が完全に同点の
   // 候補が2つ以上あるときだけ、その中で一番低いティアの形から切る(src/core/shapeTier.js)。
@@ -9250,6 +9255,7 @@ const PARAM_RANGES = {
   honorSeenKeep: [0, 2, 0.5],
   hanEstimateFix: [0, 1, 0.5],
   allLastRiichiNeed: [0, 1, 1],
+  riichiValueCalib: [0, 1, 0.5],
   shapeTierTie: [0, 1, 1],
   keitenLate: [0, 1, 1],
   riichiTileRead: [0, 1, 0.5],
@@ -9373,7 +9379,7 @@ function validateGroups() {
  *   evalMode / lookaheadTop … 評価方法そのものの切り替え(数値の微調整ではない)
  *   goodShapeWeight / goodShapeTop … 0以外にすると1手先読みが走る(コストは tools/bench.mjs)
  */
-const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed'];
+const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib'];
 
 /**
  * 三麻でしか使われない係数(ai.js の game.P === 3 の分岐)。
@@ -9476,6 +9482,7 @@ const GATED_BY = {
   openThreatDodgeUkeire: { all: ['evalMode', 'openThreatDodge'] },
   honorSeenKeep: { all: ['evalMode'] },
   hanEstimateFix: { all: ['evalMode'] },
+  riichiValueCalib: { any: ['valueWeight', 'rankEvWeight', 'evalMode'] },
 };
 
 /**
@@ -10130,6 +10137,37 @@ function allLastRiichiDecision(r) {
 return { scoreOf, allLastRanks, classOf, allLastRiichiDecision };
 })();
 
+__m["src/core/riichiValue.js"] = (function () {
+// リーチ者の打点の見積もりを、自己対戦の和了の打点の表で引く(係数 riichiValueCalib)。
+//
+// 分け方は集計(57)(tools/riichi-value-calib.mjs)と同じものを使う約束なので、集計の道具もここを読む。
+// 集計の結果: docs/measurements/2026-10-02-riichiValueCalib-survey.md。表は src/data/riichiValueTable.js
+//
+// 打点 = 和了の点 − 本場の分(供託も含めない)。放銃の失点として使うのはロンの値
+
+/** 宣言巡目の帯(riichiTurn = 宣言牌を含めた河の枚数)。〜6 / 7〜11 / 12〜 */
+const turnBandOf = (t) => (t <= 6 ? 't1_6' : t <= 11 ? 't7_11' : 't12');
+/** ドラ表示牌の枚数の区分。1 / 2以上 */
+const indKeyOf = (n) => (n >= 2 ? '2+' : '1');
+/** 表のマスの名前(親子 x ロン/ツモ x 表示牌 x 宣言巡目) */
+const cellKey = (dealer, tsumo, ind, turn) => `${dealer ? 'dealer' : 'child'}.${tsumo ? 'tsumo' : 'ron'}.${indKeyOf(ind)}.${turnBandOf(turn)}`;
+
+/** 件数がこれ未満のマスは、親子のロン全体の平均に落とす */
+const MIN_N = 50;
+
+/**
+ * リーチ者の放銃の失点の見積もり(ロンの値)。table = { cells: { [cellKey]: { n, mean } }, all: { 'child.ron': { mean }, 'dealer.ron': { mean } } }。
+ * 定数 constant と w で混ぜる(0〜1)
+ */
+function riichiValueOf(isDealer, indCount, riichiTurn, table, constant, w) {
+  const c = table.cells[cellKey(isDealer, false, indCount, riichiTurn)];
+  const v = c && c.n >= MIN_N ? c.mean : table.all[isDealer ? 'dealer.ron' : 'child.ron'].mean;
+  return (1 - w) * constant + w * v;
+}
+
+return { turnBandOf, indKeyOf, cellKey, MIN_N, riichiValueOf };
+})();
+
 __m["src/core/proDama.js"] = (function () {
 // 最初の聴牌のリーチ / ダマを、Mリーグの牌譜で学んだロジスティック回帰で決める(係数 proDamaModel)。
 //
@@ -10422,6 +10460,7 @@ const { waitScaleBand } = __m["src/data/waitScaleTable.js"];
 const { classify } = __m["src/core/callable.js"];
 const { trackCalls, oppFeatures, callTenpaiProb } = __m["src/core/callTenpai.js"];
 const { allLastRanks, allLastRiichiDecision } = __m["src/core/allLastRiichi.js"];
+const { riichiValueOf } = __m["src/core/riichiValue.js"];
 const { features: proFeatures, riichiProb: proRiichiProb } = __m["src/core/proDama.js"];
 const { publicCounts: learnedPublic, declOf: learnedDeclOf, isLearnedTarget } = __m["src/core/learnedDanger.js"];
 const { SKILLS, degradedChoice } = __m["src/core/handicap.js"];
@@ -10463,10 +10502,14 @@ function activeThreats(game, seat, p) {
     // blind は教材用の技術欠損(その読みを持っていない打ち手)。danger.js が解釈する
     // readValue の値を使うかは valueReadWeight で切り替える(0=従来の定数推定)。
     // 定数と読み値を混ぜられるようにしておかないと、読みの効果を単独で測れない
-    const base = p.valueReadWeight && t.read
-      ? t.value * (1 - p.valueReadWeight) + t.read.points * p.valueReadWeight
+    // リーチ者の打点は stats.js の定数(子 7,000 / 親 10,000)の代わりに自己対戦の和了の表で引く(riichiValueCalib。0 なら定数のまま)
+    const value = p.riichiValueCalib > 0 && t.riichi && game.riichiValue
+      ? riichiValueOf(t.isDealer, game.doraIndicators().length, game.state.seats[t.seatIndex].riichiTurn, game.riichiValue, t.value, Math.min(1, p.riichiValueCalib))
       : t.value;
-    const ctx = { ...t, blind: p.blind || null, adjValue: base * (t.isDealer ? p.dealerThreatBonus : 1) };
+    const base = p.valueReadWeight && t.read
+      ? value * (1 - p.valueReadWeight) + t.read.points * p.valueReadWeight
+      : value;
+    const ctx = { ...t, value, blind: p.blind || null, adjValue: base * (t.isDealer ? p.dealerThreatBonus : 1) };
     // リーチ者なら宣言牌との関係で形モデルの放銃率に倍率を掛ける(riichiTileRead。0 なら付けない)
     if (p.riichiTileRead > 0 && t.riichi && game.riichiRead) {
       const decl = riichiDeclOf(game.state.seats[t.seatIndex].discards);
@@ -13387,6 +13430,145 @@ function hanEstimateCalibFor(rule) {
 return { HAN_ESTIMATE_CALIB, hanEstimateCalibFor };
 })();
 
+__m["src/data/riichiValueTable.js"] = (function () {
+// リーチ者の打点の表 —— tools/make-riichi-value.mjs が生成。手で編集しないこと
+//
+// 実体は data/riichi-value.<ルール>.json(tools/riichi-value-calib.mjs --emit の実測)。マスの名前は src/core/riichiValue.js。
+// 使うのは src/core/ai.js の activeThreats(係数 riichiValueCalib)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const RIICHI_VALUE = {
+ "mleague": {
+  "generation": 4,
+  "hanchan": 1200,
+  "seedFrom": 294000000,
+  "seedTo": 294001199,
+  "measuredAt": "2026-10-02",
+  "all": {
+   "child.ron": {
+    "n": 2095,
+    "mean": 5900
+   },
+   "child.tsumo": {
+    "n": 2073,
+    "mean": 7267
+   },
+   "dealer.ron": {
+    "n": 712,
+    "mean": 8507
+   },
+   "dealer.tsumo": {
+    "n": 830,
+    "mean": 11037
+   }
+  },
+  "cells": {
+   "child.ron.1.t1_6": {
+    "n": 579,
+    "mean": 4990
+   },
+   "child.ron.1.t7_11": {
+    "n": 1045,
+    "mean": 5789
+   },
+   "child.ron.1.t12": {
+    "n": 269,
+    "mean": 6793
+   },
+   "child.ron.2+.t1_6": {
+    "n": 55,
+    "mean": 7460
+   },
+   "child.ron.2+.t7_11": {
+    "n": 110,
+    "mean": 7912
+   },
+   "child.ron.2+.t12": {
+    "n": 37,
+    "mean": 8495
+   },
+   "child.tsumo.1.t1_6": {
+    "n": 667,
+    "mean": 6660
+   },
+   "child.tsumo.1.t7_11": {
+    "n": 978,
+    "mean": 7255
+   },
+   "child.tsumo.1.t12": {
+    "n": 222,
+    "mean": 7605
+   },
+   "child.tsumo.2+.t1_6": {
+    "n": 70,
+    "mean": 8803
+   },
+   "child.tsumo.2+.t7_11": {
+    "n": 106,
+    "mean": 8516
+   },
+   "child.tsumo.2+.t12": {
+    "n": 30,
+    "mean": 10640
+   },
+   "dealer.ron.1.t1_6": {
+    "n": 181,
+    "mean": 7314
+   },
+   "dealer.ron.1.t7_11": {
+    "n": 370,
+    "mean": 8735
+   },
+   "dealer.ron.1.t12": {
+    "n": 99,
+    "mean": 8406
+   },
+   "dealer.ron.2+.t1_6": {
+    "n": 14,
+    "mean": 9571
+   },
+   "dealer.ron.2+.t7_11": {
+    "n": 33,
+    "mean": 11364
+   },
+   "dealer.ron.2+.t12": {
+    "n": 15,
+    "mean": 10660
+   },
+   "dealer.tsumo.1.t1_6": {
+    "n": 256,
+    "mean": 10396
+   },
+   "dealer.tsumo.1.t7_11": {
+    "n": 380,
+    "mean": 10576
+   },
+   "dealer.tsumo.1.t12": {
+    "n": 113,
+    "mean": 12273
+   },
+   "dealer.tsumo.2+.t1_6": {
+    "n": 20,
+    "mean": 10875
+   },
+   "dealer.tsumo.2+.t7_11": {
+    "n": 52,
+    "mean": 14550
+   },
+   "dealer.tsumo.2+.t12": {
+    "n": 9,
+    "mean": 13333
+   }
+  }
+ }
+};
+
+/** そのルールの表。無ければ null(係数は効かない) */
+function riichiValueFor(rule) {
+  return RIICHI_VALUE[rule] || null;
+}
+
+return { RIICHI_VALUE, riichiValueFor };
+})();
+
 __m["src/core/game.js"] = (function () {
 // 対局エンジン(四人麻雀 Mリーグルール / 三人麻雀 関西三麻)
 const { toCounts, doraFromIndicator, sortTiles, isHonor, isDragon, isWind, NORTH, kindToName } = __m["src/core/tiles.js"];
@@ -13412,6 +13594,7 @@ const { callTenpaiSignalFor } = __m["src/data/callTenpaiSignalTable.js"];
 const { callableOutLikelyFor } = __m["src/data/callableOutLikelyTable.js"];
 const { doraDangerFor } = __m["src/data/doraDangerTable.js"];
 const { hanEstimateCalibFor } = __m["src/data/hanEstimateCalibTable.js"];
+const { riichiValueFor } = __m["src/data/riichiValueTable.js"];
 const WIND_NAMES = ['東', '南', '西', '北'];
 // 王牌は14枚で固定(docs/research-rules.md)。先頭4枚が嶺上牌、その後ろがドラ表示。
 // 補充のたびに山の最後の牌を末尾へ足すので、5回目以降の嶺上牌は**末尾側**にある
@@ -13467,6 +13650,8 @@ class Game {
     this.doraDanger = opts.doraDanger !== undefined ? opts.doraDanger : doraDangerFor(rules.id);
     // 打点見込みの補正の表(src/data/hanEstimateCalibTable.js)。使うのは hanEstimateFix > 0 のときだけ
     this.hanCalib = opts.hanCalib !== undefined ? opts.hanCalib : hanEstimateCalibFor(rules.id);
+    // リーチ者の打点の表(src/data/riichiValueTable.js)。使うのは riichiValueCalib > 0 のときだけ
+    this.riichiValue = opts.riichiValue !== undefined ? opts.riichiValue : riichiValueFor(rules.id);
     // 和了率の校正表(tools/winrate-calib.mjs --emit)。渡されなければ校正しない
     this.winCal = opts.winCal || null;
     // **表が要る係数なのに表が無い**と、測ったときと違う打ち筋で動く。
@@ -15968,6 +16153,7 @@ const GENERATIONS = {
             "honorSeenKeep": 0,
             "hanEstimateFix": 0,
             "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16058,6 +16244,7 @@ const GENERATIONS = {
             "honorSeenKeep": 0,
             "hanEstimateFix": 0,
             "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16148,6 +16335,7 @@ const GENERATIONS = {
             "honorSeenKeep": 0,
             "hanEstimateFix": 0,
             "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -16238,6 +16426,7 @@ const GENERATIONS = {
             "honorSeenKeep": 0,
             "hanEstimateFix": 0,
             "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
             "shapeTierTie": 0,
             "keitenLate": 1,
             "riichiTileRead": 1,
@@ -16334,6 +16523,7 @@ const GENERATIONS = {
             "honorSeenKeep": 0,
             "hanEstimateFix": 0,
             "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
