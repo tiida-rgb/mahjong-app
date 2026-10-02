@@ -1144,6 +1144,50 @@ body:not([data-route="home"]) .footer { display: none; }
 .ms-info .left { font-size: min(calc(16px * var(--boost, 1)), 21px); margin-top: 0; }
 /* 名前の段は折り返さない(リーチ・副露が付いて2段になると、下の席の札に被る) */
 .ms-opp .row1, .ms-opp .row2 { flex-wrap: nowrap; white-space: nowrap; }
+
+/* ===== 雀魂の立体(人の要望 2026-10-02) =====
+   カメラは斜め上から。卓は奥へ傾いた面で、その上に牌が立つ・寝る。
+   - 他家の手牌 … 卓に**立っている**箱。こちらに見えるのは背(琥珀)と天面(白い層 + 琥珀の層)
+   - 河        … 卓に寝ている。手前の側面が厚みとして見える(.ms-river .tile)
+   - 自分の手牌 … 立っていて、こちらに表を向ける。見えるのは表と**天面だけ**(下の側面は見えない)
+   立てる牌は CSS の 3D(preserve-3d)で本当に立てる。卓・席・手牌の箱を 3D のまま繋ぐ */
+.ms-field, .ms-opp-zone, .ms-hidden { transform-style: preserve-3d; }
+.ms-hidden { gap: 1px; }
+.ms-hidden .st { position: relative; flex: 0 0 auto; transform-style: preserve-3d; }
+.ms-hidden .st-back, .ms-hidden .st-top { position: absolute; border-radius: 4px; }
+.ms-hidden .st-back { background: linear-gradient(180deg, #f7bd63 0%, #eda94a 45%, #d98f31 100%);
+  box-shadow: inset 0 0 0 1px rgba(120, 70, 10, .55), inset 0 2px 0 rgba(255, 236, 196, .55); }
+.ms-hidden .st-top { box-shadow: inset 0 0 0 1px rgba(120, 90, 40, .45); }
+/* 対面(横に並ぶ)。足元 30×22、高さ 44 */
+.ms-hidden.row .st { width: 30px; height: 22px; }
+.ms-hidden.row .st-back { left: 0; bottom: 0; width: 30px; height: 44px; transform-origin: bottom; transform: rotateX(-90deg); }
+.ms-hidden.row .st-top { left: 0; top: 0; width: 30px; height: 22px; transform: translateZ(44px);
+  background: linear-gradient(180deg, #f3ead2 0 55%, #e8a447 55% 100%); }
+.ms-hidden.row .st.drawn { margin-left: 10px; }
+/* 上家・下家(縦に並ぶ)。足元 22×30。背は卓の中央の側に立つ */
+.ms-hidden.col .st { width: 22px; height: 30px; }
+.ms-hidden.col .st.drawn { margin-top: 10px; }
+.ms-hidden.col .st-back { top: 0; width: 44px; height: 30px; }
+.ms-hidden.col .st-top { left: 0; top: 0; width: 22px; height: 30px; transform: translateZ(44px); }
+.ms-hidden.col.right .st-back { left: 0; transform-origin: left; transform: rotateY(-90deg);
+  background: linear-gradient(90deg, #d98f31 0%, #eda94a 55%, #f7bd63 100%); }
+.ms-hidden.col.right .st-top { background: linear-gradient(90deg, #e8a447 0 45%, #f3ead2 45% 100%); }
+.ms-hidden.col.left .st-back { right: 0; transform-origin: right; transform: rotateY(90deg);
+  background: linear-gradient(90deg, #f7bd63 0%, #eda94a 45%, #d98f31 100%); }
+.ms-hidden.col.left .st-top { background: linear-gradient(90deg, #f3ead2 0 55%, #e8a447 55% 100%); }
+
+/* 自分の手牌: 見えるのは表と天面だけ。天面は表のすぐ上が白い層、その奥が琥珀の層 */
+.ms-hand .tile { --edge: 9px; margin-top: var(--edge);
+  box-shadow:
+    inset 0 0 0 1px var(--rim),
+    inset 0 -2px 3px rgba(150, 125, 70, .22),
+    0 calc(var(--edge) * -.55) 0 #f3ead2,
+    0 calc(var(--edge) * -.55 - .6px) 0 #d9cba3,
+    0 calc(var(--edge) * -1) 0 #e8a447,
+    0 calc(var(--edge) * -1 - 1px) 0 #b5701f,
+    0 8px 14px rgba(0, 0, 0, .35); }
+/* 数字の段は天面の上に出す */
+.ms-hand .tile-hint2 { bottom: calc(100% + 3px + var(--edge)); }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16055,8 +16099,8 @@ const GEO = {
   // (手牌の上のヒント数字と自分の河が重ならないよう、卓の中心は少し上に寄せている)
   bottom: { river: { cx: 640, cy: 513, rot: 0 }, callout: [640, 540] },
   top: { river: { cx: 640, cy: 139, rot: 180 }, callout: [640, 140], hand: { x: 445, y: 12, dir: 'row' }, label: { x: 900, y: 6 } },
-  left: { river: { cx: 453, cy: 326, rot: 90 }, callout: [300, 326], hand: { x: 12, y: 120, dir: 'col', rot: 90 }, label: { x: 104, y: 112 } },
-  right: { river: { cx: 827, cy: 326, rot: 270 }, callout: [980, 326], hand: { x: 1226, y: 120, dir: 'col', rot: -90 }, label: { x: 912, y: 112 } },
+  left: { river: { cx: 453, cy: 326, rot: 90 }, callout: [300, 326], hand: { x: 52, y: 112, dir: 'col', rot: 90 }, label: { x: 104, y: 112 } },
+  right: { river: { cx: 827, cy: 326, rot: 270 }, callout: [980, 326], hand: { x: 1206, y: 112, dir: 'col', rot: -90 }, label: { x: 912, y: 112 } },
 };
 
 function renderPractice(app) {
@@ -16448,7 +16492,7 @@ function renderPractice(app) {
     const g = GEO[role];
     const zone = el('div', { class: `ms-opp-zone ${role}` });
     // 手牌(裏)と副露
-    const hand = el('div', { class: `ms-hidden ${g.hand.dir}`, style: `left:${g.hand.x}px;top:${g.hand.y}px` });
+    const hand = el('div', { class: `ms-hidden ${g.hand.dir} ${role}`, style: `left:${g.hand.x}px;top:${g.hand.y}px` });
     const drawnExtra = st.turn === i && s.drawn && !st.kyokuResult ? 1 : 0;
     const hidden = s.hand.length - drawnExtra;
     // 打牌の再生中は、切られた1枚を元の位置に残したまま抜けていくように見せる。
@@ -16457,7 +16501,9 @@ function renderPractice(app) {
     const slots = fl ? fl.handSize : hidden + drawnExtra;
     const drawnSlot = fl ? (fl.hasDrawn ? fl.handSize - 1 : -1) : (drawnExtra ? hidden : -1);
     for (let k = 0; k < slots; k++) {
-      const t = sideWrap(backTileEl(), g.hand.rot);
+      // 卓の上に**立っている**牌(雀魂と同じ)。傾けた卓の上に 3D の箱で立てる。
+      // 平らな裏の牌を卓に置いていたら「伏せてある」ように見えた(人の報告 2026-10-02)
+      const t = standingTile();
       if (k === drawnSlot) t.classList.add('drawn');
       if (fl && k === fl.fromIndex) t.classList.add('leaving');
       hand.appendChild(t);
@@ -16498,6 +16544,11 @@ function renderPractice(app) {
   function rowClass(r, c) {
     if (r.cls !== 'hr-danger') return '';
     return c.danger.rate >= 10 ? 'hot' : c.danger.rate >= 5 ? 'warm' : 'cool';
+  }
+
+  /** 立っている牌(裏を見せる)。背の面と天面の2枚。向きは .ms-hidden.row / .col / .left の CSS が決める */
+  function standingTile() {
+    return el('div', { class: 'st' }, [el('div', { class: 'st-back' }), el('div', { class: 'st-top' })]);
   }
 
   /** 側面(左右)の席は牌を90°回して縦に積む。上下はそのまま */
