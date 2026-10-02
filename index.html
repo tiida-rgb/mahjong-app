@@ -1239,7 +1239,7 @@ body:not([data-route="home"]) .footer { display: none; }
 
 /* ===== 全画面では切替ボタンを卓の右上に重ねる(卓に高さを全部渡す) ===== */
 .ms-table.immersive .ms-toolbar { position: absolute; z-index: 6; right: calc(env(safe-area-inset-right, 0px) + 6px);
-  top: calc(env(safe-area-inset-top, 0px) + 4px); padding: 0; max-width: 46%; gap: 4px; }
+  top: calc(env(safe-area-inset-top, 0px) + 4px); padding: 0; flex-wrap: nowrap; max-width: none; gap: 4px; }
 .ms-table.immersive .ms-toolbtn { font-size: .68rem; padding: .12rem .5rem; background: rgba(8, 14, 30, .7); }
 
 /* ===== 前の打牌 → この局の説明のポップ ===== */
@@ -1274,16 +1274,20 @@ body:not([data-route="home"]) .footer { display: none; }
 .ms-river .tile.tsumogiri.latest { filter: drop-shadow(0 0 6px #ffd447); }
 .ms-river .tile.tsumogiri::after { background: rgba(16, 24, 40, .38); }
 
-/* ===== 鳴きアシスト(押し引きと同じ場所・同じ見た目。鳴ける候補ごとに1段) ===== */
-.ms-ca .head { justify-content: space-between; }
-.ms-ca .head .muted { font-size: calc(12px * var(--boost, 1)); color: #b9eeea; }
-.ms-ca .ca-row { padding: 6px 0 4px; border-top: 1px solid rgba(140,230,225,.2); }
-.ms-ca .ca-row:first-of-type { border-top: 0; }
-.ms-ca .ca-name { font-weight: 800; font-size: calc(15px * var(--boost, 1)); }
-.ms-ca .ca-row.push .ca-name { color: #8ff0c4; }
-.ms-ca .ca-row.fold .ca-name { color: #a9ccff; }
-.ms-ca .ca-why { font-size: calc(11px * var(--boost, 1)); line-height: 1.35; margin-top: 2px; white-space: normal; }
-.ms-ca { overflow-y: auto; }
+/* ===== 鳴きアシスト: 鳴きのボタンの真上に載せる ===== */
+.ms-actions { align-items: flex-end; }
+.ms-actions .ca-col { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.ca-chip { padding: 4px 8px 5px; border-radius: 9px; background: rgba(8, 14, 30, .78); border: 1px solid rgba(140,230,225,.45);
+  font-size: calc(13px * var(--boost, 1)); line-height: 1.2; white-space: nowrap; }
+.ca-chip .ca-nums { display: flex; justify-content: space-between; gap: 8px; }
+.ca-chip .ca-nums b { color: #8ff0c4; }
+.ca-chip .ca-nums span { color: #a9ccff; }
+.ca-chip.fold .ca-nums b { color: #cfe3d8; font-weight: 600; }
+.ca-chip.fold .ca-nums span { font-weight: 800; }
+.ca-chip .ca-bar { height: 5px; margin-top: 3px; border-radius: 3px; background: #4d6fa8; overflow: hidden; }
+.ca-chip .ca-bar div { height: 100%; background: #3fcf9a; }
+.ca-chip .ca-note { font-size: .8em; color: #ffc4a3; margin-top: 2px; }
+.ca-chip.ai { color: #b9eeea; text-align: center; font-size: calc(12px * var(--boost, 1)); }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16852,9 +16856,6 @@ function renderPractice(app) {
     field.appendChild(riverEl(0, 'bottom'));
     stage.appendChild(myZone());
     if (store.settings.showPushFold !== false && prompt?.type === 'action' && !st.seats[0].riichi && current?.pf) stage.appendChild(pushFoldPanel(current.pf));
-    if (store.settings.callAssist !== false && prompt?.type === 'claim' && ((prompt.options.chi || []).length || prompt.options.pon)) {
-      try { stage.appendChild(callAssistPanel(callAssist(game, 0, prompt.options))); } catch (e) { /* 目安なので転んでも対局は止めない */ }
-    }
     for (const ev of events) calloutFor(ev);
     below.appendChild(analysisPanel());
     below.appendChild(el('div', { class: 'card log-card' }, [el('h3', { text: '進行ログ' }), el('div', { class: 'log' }, st.log.slice(-30).map((l) => el('div', { text: l })))]));
@@ -17112,36 +17113,37 @@ function renderPractice(app) {
       const d = game.state.lastDiscard;
       actions.appendChild(el('span', { class: 'claim-from' }, [`${game.state.seats[d.seat].name} の `, tileEl(d.tile, {}), ' に']));
       if (o.ron) actions.appendChild(el('button', { class: 'act win', text: `ロン ${formatScore(o.ron)}`, onClick: () => doClaim({ type: 'ron' }, [{ type: 'win', winners: [0], from: d.seat }]) }));
-      if (o.pon) actions.appendChild(el('button', { class: 'act call', text: 'ポン', onClick: () => doClaim({ type: 'pon' }, [{ type: 'call', call: 'pon', seat: 0 }]) }));
+      // 鳴きアシスト: 鳴きのボタンの上に「鳴き ○% / スルー ○%」を載せる。
+      // 押し引きの窓と同じ場所に出すと重なるので、押すボタンの真上に置く(人の指摘 2026-10-02)
+      let ca = null;
+      if (store.settings.callAssist !== false && (o.pon || o.chi.length)) {
+        try { ca = callAssist(game, 0, o); } catch (e) { ca = null; /* 目安なので転んでも対局は止めない */ }
+      }
+      const withAssist = (btn, item) => {
+        if (!ca) return btn;
+        if (!item) return el('div', { class: 'ca-col' }, [el('div', { class: 'ca-chip ai', text: `AIなら ${ca.ai}` }), btn]);
+        const side = item.call >= 55 ? 'push' : item.call <= 45 ? 'fold' : 'even';
+        const why = item.noYaku ? '鳴くと役が無くなる'
+          : `鳴き後 ${item.after.shanten <= 0 ? '聴牌' : `${item.after.shanten}向聴`}・受け入れ${item.after.total}枚 / スルー ${ca.passShanten <= 0 ? '聴牌' : `${ca.passShanten}向聴`}`;
+        return el('div', { class: 'ca-col' }, [
+          el('div', { class: `ca-chip ${side}`, title: why }, [
+            el('div', { class: 'ca-nums' }, [el('b', { text: `鳴き ${item.call}%` }), el('span', { text: `スルー ${item.pass}%` })]),
+            el('div', { class: 'ca-bar' }, [el('div', { style: `width:${item.call}%` })]),
+            item.noYaku ? el('div', { class: 'ca-note', text: '役なし' }) : null,
+          ]),
+          btn,
+        ]);
+      };
+      const itemOf = (type, combo) => ca?.items.find((it) => it.type === type && (!combo || it.chi.join() === combo.join()));
+      if (o.pon) actions.appendChild(withAssist(el('button', { class: 'act call', text: 'ポン', onClick: () => doClaim({ type: 'pon' }, [{ type: 'call', call: 'pon', seat: 0 }]) }), itemOf('pon')));
       if (o.kan) actions.appendChild(el('button', { class: 'act call', text: 'カン', onClick: () => doClaim({ type: 'kan' }, [{ type: 'call', call: 'kan', seat: 0 }]) }));
-      for (const combo of o.chi) actions.appendChild(el('button', { class: 'act call', text: `チー ${combo.map(kindToName).join('')}`, onClick: () => doClaim({ type: 'chi', chi: combo }, [{ type: 'call', call: 'chi', seat: 0 }]) }));
-      actions.appendChild(el('button', { class: 'act pass', text: 'スルー', onClick: () => doClaim({ type: 'pass' }) }));
+      for (const combo of o.chi) actions.appendChild(withAssist(el('button', { class: 'act call', text: `チー ${combo.map(kindToName).join('')}`, onClick: () => doClaim({ type: 'chi', chi: combo }, [{ type: 'call', call: 'chi', seat: 0 }]) }), itemOf('chi', combo)));
+      actions.appendChild(withAssist(el('button', { class: 'act pass', text: 'スルー', onClick: () => doClaim({ type: 'pass' }) }), null));
     } else if (prompt?.type === 'step') {
       actions.appendChild(el('span', { class: 'ms-wait', text: `${game.state.seats[game.state.turn]?.name || ''} の番…` }));
     }
     zone.appendChild(actions);
     return zone;
-  }
-
-  /** 鳴きアシスト: 鳴きの候補ごとに、鳴き と スルー を合計100%で出す(押し引きと同じ場所・同じ見た目) */
-  function callAssistPanel(r) {
-    const box = el('div', { class: 'ms-pf ms-ca' });
-    box.appendChild(el('div', { class: 'head' }, [el('b', { text: '鳴きアシスト' }), el('span', { class: 'muted small', text: `AIなら: ${r.ai}` })]));
-    for (const it of r.items) {
-      const side = it.call >= 55 ? 'push' : it.call <= 45 ? 'fold' : 'even';
-      box.appendChild(el('div', { class: `ca-row ${side}` }, [
-        el('div', { class: 'ca-name', text: it.label }),
-        el('div', { class: 'nums' }, [
-          el('span', { class: 'push', text: `鳴き ${it.call}%` }),
-          el('span', { class: 'fold', text: `スルー ${it.pass}%` }),
-        ]),
-        el('div', { class: 'bar' }, [el('div', { class: 'p', style: `width:${it.call}%` })]),
-        el('div', { class: 'ca-why muted small', text: it.noYaku
-          ? '鳴くと役が無くなる'
-          : `鳴き後 ${it.after.shanten <= 0 ? '聴牌' : `${it.after.shanten}向聴`}(打${kindToName(it.after.kind)}・受け入れ${it.after.total}枚)/ スルー ${r.passShanten <= 0 ? '聴牌' : `${r.passShanten}向聴`}・局収支の差 ${it.callEv - it.passEv >= 0 ? '+' : ''}${it.callEv - it.passEv}` }),
-      ]));
-    }
-    return box;
   }
 
   function pushFoldPanel(pf) {
