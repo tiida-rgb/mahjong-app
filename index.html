@@ -1267,6 +1267,12 @@ body:not([data-route="home"]) .footer { display: none; }
 .rv-thumb { position: absolute; left: 1px; right: 1px; top: 0; border-radius: 6px; background: linear-gradient(180deg, #7fe6e0, #3fb8b2);
   box-shadow: 0 0 8px rgba(95,214,208,.6); cursor: grab; touch-action: none; }
 .rv-thumb:active { cursor: grabbing; }
+
+/* ツモ切りは**表だけ**を暗くする(人の指摘 2026-10-02: 下家の河で牌が重なって見えた)。
+   filter で牌ごと暗くすると側面(厚み)の色まで変わり、隣の牌との境目が崩れていた */
+.ms-river .tile.tsumogiri { filter: none; }
+.ms-river .tile.tsumogiri.latest { filter: drop-shadow(0 0 6px #ffd447); }
+.ms-river .tile.tsumogiri::after { background: rgba(16, 24, 40, .38); }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1662,9 +1668,9 @@ function souEight(color) {
 }
 
 // 絵柄が牌面に占める割合(幅, 高さ)。雀魂の牌に合わせる(人の要望 2026-10-02):
-// 数牌は面の7割ほど、字牌は文字のまわりにもっと余白を取る。
+// 数牌も字牌も面の7割ほど。字牌だけさらに小さくしたら文字が小さすぎた(人の指摘 2026-10-02)。
 // 素材は牌ごとに絵の大きさがまちまちなので、外接枠(TILE_BOX)をこの枠に収める大きさにそろえる
-const ART_FIT = { suit: [0.70, 0.72], honor: [0.58, 0.56] };
+const ART_FIT = { suit: [0.70, 0.72], honor: [0.70, 0.72] };
 
 function artTransform(kind, red) {
   const box = TILE_BOX[red && !isHonor(kind) && numOf(kind) === 5 ? `r${kind}` : String(kind)];
@@ -16823,6 +16829,10 @@ function renderPractice(app) {
         t.style.left = `${x}px`; t.style.top = `${y}px`;
         x += RIVER.w;
       }
+      // 厚みは画面の下へ出る。下家・対面の河は並びが画面の上へ進むので、後の牌の厚みが前の牌に掛かる。
+      // 実物では手前(前の牌)が奥の厚みを隠すので、前の牌ほど上に重ねる。
+      // 逆だと、暗いツモ切りの牌の上に次の牌の白い側面が乗り、牌が重なって見えた(人の指摘 2026-10-02)
+      if (g.rot === 180 || g.rot === 270) t.style.zIndex = String(100 - idx);
       box.appendChild(t);
     });
     return box;
