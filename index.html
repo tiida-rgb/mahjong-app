@@ -21137,19 +21137,30 @@ function reportSubject(kind, text) {
   return `${SUBJECT_TAG} ${kind}: ${head.slice(0, 30)}`;
 }
 
+let libJob = null;
 function loadLib() {
   if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = LIB;
-    s.onload = () => (window.htmlToImage ? resolve(window.htmlToImage) : reject(new Error('lib')));
-    s.onerror = () => reject(new Error('lib'));
-    document.head.appendChild(s);
-  });
+  // 読み込み中なら同じ約束を返す。失敗したら忘れて、次に開いたときに読み直す
+  if (!libJob) {
+    libJob = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = LIB;
+      s.onload = () => (window.htmlToImage ? resolve(window.htmlToImage) : reject(new Error('lib')));
+      s.onerror = () => { s.remove(); reject(new Error('lib')); };
+      document.head.appendChild(s);
+    }).catch((e) => { libJob = null; throw e; });
+  }
+  return libJob;
 }
 
 /** 今の画面を JPEG の data URL にする。撮れなければ null(報告はスクショなしで続けられる) */
-async function capture() {
+// **読み込みから撮り終わりまで全体に時間切れを付ける。** 前は撮るところにしか無く、
+// スクショ用の部品の読み込みが通信の途中で止まると、二度と3回タップに反応しなくなった(人の報告 2026-10-03)
+const CAPTURE_LIMIT_MS = 8000;
+function capture() {
+  return Promise.race([captureNow(), new Promise((ok) => setTimeout(() => ok(null), CAPTURE_LIMIT_MS))]);
+}
+async function captureNow() {
   try {
     const lib = await loadLib();
     const node = document.fullscreenElement || document.body;
@@ -21159,7 +21170,7 @@ async function capture() {
       backgroundColor: getComputedStyle(document.body).backgroundColor || '#0b1226',
       filter: (n) => !(n.classList && n.classList.contains('bug-bg')),
     });
-    return await Promise.race([job, new Promise((_, ng) => setTimeout(() => ng(new Error('timeout')), 10000))]);
+    return await job;
   } catch (e) {
     return null;
   }
@@ -21325,14 +21336,24 @@ async function flushQueue() {
   writeQueue(left);
 }
 
-let opening = false;
-async function openReport() {
-  if (opening || document.querySelector('.bug-bg')) return;
+/** 見えていない窓(全画面を抜けて隠れた卓の中に残ったものなど)は片付ける。見えている窓があれば true */
+function reportOpen() {
+  let open = false;
+  for (const b of document.querySelectorAll('.bug-bg')) {
+    if (b.isConnected && b.getClientRects().length) open = true;
+    else b.remove();
+  }
+  return open;
+}
+
+function openReport() {
+  // **窓はタップしたらすぐ出す。スクショは裏で撮って、撮れたら差し込む。**
+  // 前は撮り終わるまで(スマホで数秒)何も出ず、そのあいだの3回タップは無視していた
+  if (reportOpen()) return;
   // 永久 BAN された端末・アカウントからは送れない(規則でも弾く。ここは窓を開かないだけ)
   if (isBanned()) return;
-  opening = true;
-  const shot = await capture();
-  opening = false;
+  let shot = null;
+  const shotJob = capture().then((s) => { shot = s; showShot(); return s; });
   const host = document.fullscreenElement || document.body;
   const bg = el('div', { class: 'rv-bg bug-bg' });
   const close = () => bg.remove();
@@ -21363,6 +21384,7 @@ async function openReport() {
       ua: navigator.userAgent,
     };
     sendBtn.disabled = true; status.textContent = '送信中…'; status.className = 'bug-status';
+    await shotJob; // 撮っている途中なら待つ(時間切れがあるので止まらない)
     const r = await deliver(info, shot);
     if (r.ok) {
       status.textContent = '送りました。ありがとうございます';
@@ -21381,11 +21403,18 @@ async function openReport() {
     sendBtn.disabled = false;
   });
 
+  const shotBox = el('div', { class: 'bug-noshot', text: 'この画面のスクショを撮っています…' });
+  function showShot() {
+    if (!shotBox.isConnected) return;
+    shotBox.replaceWith(shot
+      ? el('img', { class: 'bug-shot', src: shot, alt: 'この画面のスクショ' })
+      : el('div', { class: 'bug-noshot', text: 'スクショを撮れませんでした(文だけで送れます)' }));
+  }
   const pop = el('div', { class: 'rv-pop bug-pop', role: 'dialog', 'aria-label': 'バグ報告・改善要望' }, [
     el('div', { class: 'rv-head' }, [el('b', { text: 'バグ報告・改善要望' }), x]),
     el('div', { class: 'bug-body' }, [
       el('div', { class: 'bug-side' }, [
-        shot ? el('img', { class: 'bug-shot', src: shot, alt: 'この画面のスクショ' }) : el('div', { class: 'bug-noshot', text: 'スクショを撮れませんでした(文だけで送れます)' }),
+        shotBox,
         el('div', { class: 'bug-meta', text: user ? `送る人: ${user.name}(${user.email})` : '送る人: 未ログイン' }),
       ]),
       el('div', { class: 'bug-main' }, [kinds, area, reply, el('div', { class: 'bug-actions' }, [sendBtn]), status]),
