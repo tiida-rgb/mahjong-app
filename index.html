@@ -373,6 +373,8 @@ tr.muted-row td { color: var(--muted); background: #faf9f5; }
 .ms-info .kyoku { font-size: 30px; font-weight: 800; letter-spacing: .04em; }
 .ms-info .sub { font-size: 14px; color: #cfe3d8; }
 .ms-info .left { font-size: calc(17px * var(--boost, 1)); color: #ffe08a; margin-top: 4px; }
+/* 端末の字幅で「東1局」「0本場」が折り返して下の行に重なった(三麻は左右に風の箱があり列が細い)。折り返さない */
+.ms-info > div { white-space: nowrap; }
 .ms-wind { position: absolute; display: flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.06); font-size: 15px; white-space: nowrap; }
 .ms-wind .w { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 6px; background: #2c5a46; font-weight: 800; }
 .ms-wind.dealer .w { background: #b8412e; }
@@ -508,6 +510,8 @@ body.ms-immersive { overflow: hidden; }
 .ms-pf.push .verdict { color: #8ff0b8; } .ms-pf.fold .verdict { color: #9ec5ff; } .ms-pf.even .verdict { color: #ffe08a; }
 .ms-pf .nums { display: flex; justify-content: space-between; font-weight: 700; margin-top: 2px; font-size: calc(14px * var(--boost, 1)); }
 .ms-pf .nums .push { color: #8ff0b8; } .ms-pf .nums .fold { color: #9ec5ff; }
+/* 「押し 95%」が字幅の広い端末で2行に折れ、下の「攻め」に重なった。折り返さない */
+.ms-pf .nums > span { white-space: nowrap; }
 .ms-pf .bar { height: 10px; border-radius: 5px; background: #3b6fb5; overflow: hidden; margin: 4px 0 6px; }
 .ms-pf .bar .p { height: 100%; background: #1baf7a; }
 .ms-pf .tiles { display: flex; gap: 14px; align-items: center; }
@@ -1398,6 +1402,23 @@ body:not([data-route="home"]) .footer { display: none; }
 .inbox-body { margin-top: 6px; white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #dbe7f3; }
 .lb-banned { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; max-width: 560px; padding: 18px 22px;
   border-radius: 14px; background: rgba(40, 10, 14, .92); border: 1px solid #e5473a; color: #ffd9d4; font-size: 15px; line-height: 1.6; text-align: center; }
+
+/* 点数の画面: ルールの切替は上の帯の右端(本文の上に1段使わない)。早見表は全幅で、欄を折り返さない */
+.topbar .top-seg { margin: 0 0 0 auto; flex: 0 0 auto; }
+.topbar .top-seg .seg-btn { padding: .2rem .7rem; flex-direction: row; gap: .35rem; align-items: baseline; font-size: .85rem; }
+.topbar .top-seg .seg-note { font-size: .7rem; }
+.score-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.score-cols > .score-quick { grid-column: 1 / -1; }
+.score-quick table { width: 100%; }
+.score-quick td, .score-quick th { white-space: nowrap; }
+.score-quick td, .score-quick th { padding: .3rem .3rem; font-size: .8rem; }
+.score-quick td .small { font-size: .72rem; }
+
+/* 自分の手番のボタン(リーチ・ツモ・暗槓・北抜き)は、手牌の上の数字の段より上に出す。
+   数字の段は卓の下端から約192pxまで来るので、その上に置く。押し引きの箱は下端を詰めて、上げたボタンと重ねない */
+.ms-actions.over-hints { bottom: 198px; }
+.ms-pf { max-height: 220px; }
+.ms-actions.over-hints .act { font-size: calc(17px * var(--boost, 1)); padding: 6px 16px; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1425,7 +1446,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <main id="app"></main>
 <footer class="footer">評価に使う基準値は <a href="#/data">データ集</a> にまとめています。数値は2026年9月時点の当アプリ独自の推定を含みます。</footer>
 <script>
-// 98 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
+// 101 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
 // 元のソースは src/ 以下を参照。
 (function () {
   'use strict';
@@ -3935,18 +3956,31 @@ function shanten(counts, melds = 0) {
 }
 
 /**
+ * 国士無双を除いた向聴数(一般形と七対子)。画面の受入枚数に使う。
+ * 国士まで含めると、向聴の遠い手でほぼ全種の1・9・字牌が有効牌に入り、
+ * 一般形の受け入れとして読めない数になる(人の決定 2026-10-03)。
+ * AI と打牌評価は従来どおり shanten を使う
+ */
+function shantenNoKokushi(counts, melds = 0) {
+  const s = shantenStandard(counts, melds);
+  if (melds > 0 || s <= -1) return s;
+  return Math.min(s, shantenChiitoi(counts));
+}
+
+/**
  * 受け入れ(有効牌)を計算。counts は 13枚相当(副露分を引いた枚数)。
  * visible: 見えている牌の枚数配列(自分の手牌を含める)。省略時は手牌のみ考慮。
+ * sh: 向聴数の関数(既定は国士・七対子込みの shanten)。
  * 戻り値: { shanten, tiles: [{kind, count}], total }
  */
-function ukeire(counts, melds = 0, visible = null) {
-  const s = shanten(counts, melds);
+function ukeire(counts, melds = 0, visible = null, sh = shanten) {
+  const s = sh(counts, melds);
   const tiles = [];
   let total = 0;
   for (let k = 0; k < 34; k++) {
     if (counts[k] >= 4) continue;
     counts[k]++;
-    const s2 = shanten(counts, melds);
+    const s2 = sh(counts, melds);
     counts[k]--;
     if (s2 < s) {
       const seen = visible ? visible[k] : counts[k];
@@ -3990,7 +4024,7 @@ function waits(counts, melds = 0) {
   return out;
 }
 
-return { shantenStandard, shantenChiitoi, shantenKokushi, shantenDropKinds, shantenAfterDiscards, shanten, ukeire, analyzeDiscards, waits };
+return { shantenStandard, shantenChiitoi, shantenKokushi, shantenDropKinds, shantenAfterDiscards, shanten, shantenNoKokushi, ukeire, analyzeDiscards, waits };
 })();
 
 __m["src/core/skillMeter.js"] = (function () {
@@ -5491,6 +5525,31 @@ function openWinRate(base, good, turn, remain, yaku, table, w) {
 }
 
 return { TURN_BANDS, turnBandOf, waitBandOf, hasRonYakuHand, hasRonYaku, cellKey, MIN_N, openWinRate };
+})();
+
+__m["src/core/preTenpaiWin.js"] = (function () {
+// 聴牌前(1〜2向聴)の和了率の見積もりを、脅威の人数ごとの実測の倍率で校正する(係数 threatWinScale)。
+//
+// 分け方は集計(61)(tools/pretenpai-winrate-survey.mjs --emit)と同じものを使う約束なので、集計の道具もここを読む。
+// 集計の結果: docs/measurements/2026-10-03-preTenpaiWinCalib-survey.md。表は src/data/preTenpaiWinTable.js
+//
+// 倍率 = 実際の和了 ÷ 0.6 を掛ける前の見積もり(集計の「実際/0.6の前」)。いまは脅威1人ごとに一律 0.6 を掛けている
+
+/** 表のマスの名前(向聴 | 脅威の人数(0 / 1 / 2 = 2人以上)| 門前 / 副露) */
+const cellKey = (shanten, threats, open) => `${shanten}|${Math.min(2, threats)}|${open ? 'open' : 'closed'}`;
+
+/** 件数がこれ未満のマスは、脅威の人数だけの倍率に落とす */
+const MIN_N = 300;
+
+/** 倍率。table = { cells: { [cellKey]: { n, factor } }, byThreat: { '0'|'1'|'2': { n, factor } } }。引けなければ null */
+function threatWinFactor(table, shanten, threats, open) {
+  const c = table.cells[cellKey(shanten, threats, open)];
+  if (c && c.n >= MIN_N) return c.factor;
+  const b = table.byThreat[String(Math.min(2, threats))];
+  return b ? b.factor : null;
+}
+
+return { cellKey, MIN_N, threatWinFactor };
 })();
 
 __m["src/core/riichiRead.js"] = (function () {
@@ -7477,6 +7536,7 @@ __m["src/core/evaluate.js"] = (function () {
 // 何切る評価: 受け入れ・良形率・打点見込み・危険度・局収支の近似
 const { hanFixOf } = __m["src/core/hanEstimateCalib.js"];
 const { hasRonYakuHand, openWinRate } = __m["src/core/winRateState.js"];
+const { threatWinFactor } = __m["src/core/preTenpaiWin.js"];
 const { shanten, shantenStandard, ukeire, waits } = __m["src/core/shanten.js"];
 const { isSimple, isHonor, isDragon, isWind, isYaochu, suitOf, kindToName } = __m["src/core/tiles.js"];
 const { dangerAgainstAll, dangerAgainstThreats, formatDanger } = __m["src/core/danger.js"];
@@ -7899,9 +7959,12 @@ function evaluateDiscards(p) {
     const danger = dangerOf(k);
     let expLoss = lossOf(danger);
     const lossPoints = danger.rate > 0 ? expLoss / (danger.rate / 100) : (dealerRiichi ? STATS.riichiAvgPoints.dealer : STATS.riichiAvgPoints.child);
+    // 1〜2向聴は、一律の 0.6 の代わりに脅威の人数 x 向聴 x 門前/副露の実測の倍率を掛ける(threatWinScale。p.threatScale を渡したときだけ。脅威0人も含む)
+    const tScale = p.threatScale && (s === 1 || s === 2) ? threatWinFactor(p.threatScale.table, s, threatCount, melds.some((m) => m.type !== 'ankan')) : null;
+    if (tScale !== null) winRate *= (1 - p.threatScale.w) * Math.pow(0.6, threatCount) + p.threatScale.w * tScale;
     if (underPressure && s >= 1) {
       // 相手の和了で局が終わるため、聴牌前の手の和了率は減衰する
-      winRate *= Math.pow(0.6, threatCount);
+      if (tScale === null) winRate *= Math.pow(0.6, threatCount);
       // 聴牌までに押す牌(残り向聴数ぶん)の放銃リスクを上乗せ
       const pushes = Math.min(s, remainingTurns - 1);
       if (pushes > 0) expLoss += (1 - Math.pow(1 - avgPushDanger / 100, pushes)) * lossPoints;
@@ -9470,6 +9533,25 @@ const DEFAULT_AI_PARAMS = {
   // callStdShanten=1 が前提(両方立てる)。claimByShape の役牌以外のポンとチーで、鳴く前の向聴を shantenStandard で測る
   callStdShantenAll: 0,
 
+  // ---- 聴牌前の和了率の見積もりの校正(0〜1)----
+  // threatWinScale: evaluate.js の 1〜2向聴の和了率に、一律の 0.6^脅威の人数 の代わりに 脅威の人数 x 向聴 x 門前/副露 の実測の倍率
+  //   (集計(61)の「実際/0.6の前」、src/data/preTenpaiWinTable.js。件数 300 未満のマスは脅威の人数だけの値)を掛ける。脅威0人にも掛かる
+  // winCalGen4: 和了率の校正表(winCal)を Gen.4 で作り直したもの(src/data/winCalGen4Table.js)に差し替える。
+  //   winCalWeight=0(Gen.4)でも掛かる(表の差し替えだけを測るなら --against=winCalWeight=1)
+  threatWinScale: 0,
+  winCalGen4: 0,
+
+  // ---- リーチ判断の待ち枚数を出やすさの実効枚数に(0〜1)----
+  // リーチ判断に使う残り枚数(damaRemain / damaRemainRich / chaseRemain / 0枚)を、待ち牌ごとの残り枚数 x リーチしたときの出やすさの倍率
+  // (src/data/outLikelyTable.js、outLikelyWait と同じ表とカテゴリ)の合計に置き換える(w で混ぜる)。聴牌の取り方(outLikelyWait)は触らない
+  outLikelyRiichi: 0,
+
+  // ---- 向聴戻し(倍、0=使わない、A/B は 3)----
+  // 脅威なし・門前・1向聴で、向聴を1つ戻す候補の受け入れが 戻さない最善の候補 の shantenBackRatio 倍以上あり、
+  // 戻さない1向聴の聴牌の良形率が shantenBackGoodRateMax 未満か、戻さない候補がドラ切りなら戻す
+  shantenBackRatio: 0,
+  shantenBackGoodRateMax: 0.3,
+
   // ---- 形のティアで完全な同点を割る(0=切、1=入)----
   // evalMode=1 の牌効率の枝で、打牌後の向聴が1以上、牌効率のスコアと受け入れ枚数が完全に同点の
   // 候補が2つ以上あるときだけ、その中で一番低いティアの形から切る(src/core/shapeTier.js)。
@@ -9567,6 +9649,11 @@ const PARAM_RANGES = {
   dealerTenpaiBonus: [0, 3000, 500],
   winRateByState: [0, 1, 0.5],
   callStdShantenAll: [0, 1, 1],
+  threatWinScale: [0, 1, 0.5],
+  winCalGen4: [0, 1, 1],
+  outLikelyRiichi: [0, 1, 0.5],
+  shantenBackRatio: [0, 6, 1],
+  shantenBackGoodRateMax: [0, 1, 0.1],
   shapeTierTie: [0, 1, 1],
   keitenLate: [0, 1, 1],
   riichiTileRead: [0, 1, 0.5],
@@ -9690,7 +9777,7 @@ function validateGroups() {
  *   evalMode / lookaheadTop … 評価方法そのものの切り替え(数値の微調整ではない)
  *   goodShapeWeight / goodShapeTop … 0以外にすると1手先読みが走る(コストは tools/bench.mjs)
  */
-const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll'];
+const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll', 'threatWinScale', 'winCalGen4', 'outLikelyRiichi', 'shantenBackRatio', 'shantenBackGoodRateMax'];
 
 /**
  * 三麻でしか使われない係数(ai.js の game.P === 3 の分岐)。
@@ -9799,6 +9886,10 @@ const GATED_BY = {
   dealerTenpaiBonus: { all: ['evalMode', 'tenpaiEndDiscard'] },
   winRateByState: { all: ['evalMode'] },
   callStdShantenAll: { all: ['callStdShanten'] },
+  threatWinScale: { all: ['evalMode'] },
+  winCalGen4: { all: ['evalMode'] },
+  shantenBackRatio: { all: ['evalMode'] },
+  shantenBackGoodRateMax: { all: ['evalMode', 'shantenBackRatio'] },
 };
 
 /**
@@ -10995,7 +11086,10 @@ function discardEvalArgs(game, seat, p, counts, meldsArr, visible, threats) {
     useAdjValue: p.useAdjValue,
     // 流局時の聴牌料(tenpaiEndDiscard)。残りツモ(この打牌のあと、鳴きが無ければ自分が引く回数)6以下のときだけ
     tenpaiEnd: tenpaiEndCtx(game, seat, p),
-    winCal: TABLE_PARAMS.winCal.some((k) => p[k]) ? game.winCal : null,
+    // winCalGen4 を立てると、Gen.4 で作り直した校正表を使う(winCalWeight が 0 でも掛ける。0 なら従来どおり)
+    winCal: p.winCalGen4 > 0 && game.winCalGen4 ? game.winCalGen4 : TABLE_PARAMS.winCal.some((k) => p[k]) ? game.winCal : null,
+    // 聴牌前の和了率を脅威の人数別の倍率で(threatWinScale。0 なら渡さない。表は src/data/preTenpaiWinTable.js)
+    threatScale: p.threatWinScale > 0 && game.preTenpaiWin ? { table: game.preTenpaiWin, w: Math.min(1, p.threatWinScale) } : null,
     // 和了点を pt に直して評価するための局面。オーラスの「速さが正しい場面」と
     // 「遠回りが正しい場面」は、どちらもこれが無いと表現できない
     // 順位点で打つのは終盤だけにできる。東場では pt はほぼ点数に線形なので、
@@ -11270,6 +11364,8 @@ function aiChooseAction(game, seat, options) {
       const pre = blendPick(top, eff, (c) => c.ev, w);
       if (choice === pre) choice = shapeTierPick(choice, top, eff, (c) => c.ev, w, counts);
     }
+    // 脅威なし・門前・1向聴で、向聴を1つ戻す候補の受け入れが十分多く、戻さない1向聴が愚形寄りかドラ切りなら戻す(shantenBackRatio。0 なら使わない)
+    if (p.shantenBackRatio > 0 && bestShanten === 1) choice = shantenBackPick(game, seat, p, choice, cands, counts, melds, visible);
     // 孤立した字牌を切るときは、字牌どうしの中でだけ、見えている字牌を残して生牌から切る側に替える(honorSeenKeep)
     if (p.honorSeenKeep > 0 && top.length > 1) choice = honorSeenPick(game, seat, p, choice, top, eff, counts);
     // リーチ者がいないとき、副露者の当たり牌を、受け入れをほとんど失わない同じ向聴の候補に替えてよける(openThreatDodge)
@@ -11332,6 +11428,18 @@ function aiChooseAction(game, seat, options) {
         let t = 0; for (const k of w) t += eff[k];
         remain = Math.round(((1 - ww) * remain + ww * t) * 1e6) / 1e6;
       }
+    }
+    // 待ちの残り枚数を、他家からの出やすさで重み付けた実効枚数にする(outLikelyRiichi。リーチしたときの倍率、src/data/outLikelyTable.js)。
+    // 1枚ごとの枚数は上と同じ(wallAwareWaits で混ぜたもの)。現物 = 自分の河 + いま切る牌、公開の枚数にもいま切る牌を足す(outLikelyCount と同じ)。w で混ぜる
+    if (p.outLikelyRiichi > 0 && game.outLikely) {
+      const eff = p.wallAwareWaits > 0 ? wallAwareKinds(game, seat, visible) : null;
+      const ww = Math.min(1, p.wallAwareWaits);
+      const genbutsu = new Set(s.discards.map((d) => d.tile.kind)); genbutsu.add(choice.kind);
+      const pub = publicCounts(game); pub[choice.kind]++;
+      let t = 0;
+      for (const k of w) t += (eff ? (1 - ww) * Math.max(0, 4 - visible[k]) + ww * eff[k] : Math.max(0, 4 - visible[k])) * outLikelyFactor(k, genbutsu, pub, true, game.outLikely.table, 1);
+      const wo = Math.min(1, p.outLikelyRiichi);
+      remain = Math.round(((1 - wo) * remain + wo * t) * 1e6) / 1e6;
     }
     const left = turnLeft(game);
     const hasYaku = hasYakuSource(game, seat, c2, s.melds);
@@ -11723,6 +11831,26 @@ function tenpaiEndPick(cands, a, b, w, t) {
 }
 
 /**
+ * 向聴戻し(shantenBackRatio)。門前で、choice(1向聴)より向聴が1つ多い候補のうち受け入れ最大のものが、choice の受け入れの shantenBackRatio 倍以上あり、
+ * (a) choice の聴牌の良形率(evaluateDiscards の goodRate、無ければ lookaheadShape で数える)が shantenBackGoodRateMax 未満、または (b) choice がドラ切り
+ * のとき、その候補を返す。評価値の順に切り替える形にはしない(誤って戻す側に倒れる)
+ */
+function shantenBackPick(game, seat, p, choice, cands, counts, meldCount, visible) {
+  const s = game.state.seats[seat];
+  if (s.melds.some((m) => m.type !== 'ankan')) return choice;
+  let back = null;
+  for (const c of cands) if (c.shanten === choice.shanten + 1 && (!back || c.total > back.total)) back = c;
+  if (!back || back.total < p.shantenBackRatio * choice.total) return choice;
+  if (game.doraKinds().includes(choice.kind)) return back;   // (b) ドラ切りなら良形率を数えずに戻す
+  let good = choice.goodRate;
+  if (good === null || good === undefined) {
+    const c13 = counts.slice(); c13[choice.kind]--;
+    good = lookaheadShape(c13, meldCount, visible, choice.shanten, ukeire(c13, meldCount, visible)).goodRate;
+  }
+  return good !== null && good < p.shantenBackGoodRateMax * 100 ? back : choice;
+}
+
+/**
  * 孤立した字牌(手に1枚)どうしの順(honorSeenKeep)。choice が孤立した字牌のときだけ、孤立した字牌の候補の中で
  * 牌効率の点 − honorSeenKeep x 公開の見え枚数 x tileValueWeight が最大のものに替える(同点なら choice のまま)。
  * 数牌との順は変えない(tileValue に足すと、変わった打牌の 3分の2 が「字牌を残して数牌を切る」になった)
@@ -12035,7 +12163,7 @@ function effScorer(top, { game, seat, p, counts, melds, visible, bestShanten, ca
   return (c) => base(c) + (c._effGoodRate ?? 50) * p.goodShapeWeight / 100;
 }
 
-return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, foldKeitenFront, tenpaiEndCtx, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
+return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, foldKeitenFront, tenpaiEndCtx, shantenBackPick, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
 })();
 
 __m["src/core/tenpai.js"] = (function () {
@@ -14501,6 +14629,161 @@ function winRateStateFor(rule) {
 return { WIN_RATE_STATE, winRateStateFor };
 })();
 
+__m["src/data/preTenpaiWinTable.js"] = (function () {
+// 聴牌前の和了率の倍率(脅威の人数別)—— tools/make-pretenpai-win.mjs が生成。手で編集しないこと
+//
+// 実体は data/pretenpai-win.<ルール>.json(tools/pretenpai-winrate-survey.mjs --emit の実測)。マスの名前は src/core/preTenpaiWin.js。
+// 使うのは src/core/evaluate.js(係数 threatWinScale)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const PRE_TENPAI_WIN = {
+ "mleague": {
+  "generation": 4,
+  "hanchan": 1200,
+  "seedFrom": 326000000,
+  "seedTo": 326001199,
+  "measuredAt": "2026-10-03",
+  "cells": {
+   "1|0|closed": {
+    "n": 104210,
+    "factor": 0.7178
+   },
+   "1|0|open": {
+    "n": 34492,
+    "factor": 0.9279
+   },
+   "1|1|closed": {
+    "n": 25704,
+    "factor": 0.3354
+   },
+   "1|1|open": {
+    "n": 11661,
+    "factor": 0.2747
+   },
+   "1|2|closed": {
+    "n": 2205,
+    "factor": 0.2578
+   },
+   "1|2|open": {
+    "n": 1174,
+    "factor": 0.0765
+   },
+   "2|0|closed": {
+    "n": 144447,
+    "factor": 0.9511
+   },
+   "2|0|open": {
+    "n": 9937,
+    "factor": 1.3146
+   },
+   "2|1|closed": {
+    "n": 45325,
+    "factor": 0.1946
+   },
+   "2|1|open": {
+    "n": 6649,
+    "factor": 0.157
+   },
+   "2|2|closed": {
+    "n": 5862,
+    "factor": 0.0723
+   },
+   "2|2|open": {
+    "n": 876,
+    "factor": 0.0189
+   }
+  },
+  "byThreat": {
+   "0": {
+    "n": 293086,
+    "factor": 0.854
+   },
+   "1": {
+    "n": 89339,
+    "factor": 0.274
+   },
+   "2": {
+    "n": 10117,
+    "factor": 0.145
+   }
+  }
+ }
+};
+
+/** そのルールの表。無ければ null(係数は効かない) */
+function preTenpaiWinFor(rule) {
+  return PRE_TENPAI_WIN[rule] || null;
+}
+
+return { PRE_TENPAI_WIN, preTenpaiWinFor };
+})();
+
+__m["src/data/winCalGen4Table.js"] = (function () {
+// 和了率の校正表(Gen.4 で作り直したもの)—— tools/make-pretenpai-win.mjs が生成。手で編集しないこと
+//
+// 実体は data/winrate-cal.gen4.json(tools/winrate-calib.mjs --emit。集計(61))。形は data/winrate-cal.json と同じ(cells は 向聴,巡目の帯 の倍率)。
+// 使うのは src/core/ai.js(係数 winCalGen4)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const WIN_CAL_GEN4 = {
+ "rule": "mleague",
+ "generation": 4,
+ "hanchan": 1200,
+ "seedFrom": 327000000,
+ "seedTo": 327001199,
+ "measuredAt": "2026-10-02",
+ "turns": [
+  [
+   1,
+   3
+  ],
+  [
+   4,
+   6
+  ],
+  [
+   7,
+   9
+  ],
+  [
+   10,
+   12
+  ],
+  [
+   13,
+   18
+  ]
+ ],
+ "cells": {
+  "0,0": 0.9391,
+  "0,1": 0.9053,
+  "0,2": 0.8394,
+  "0,3": 0.7635,
+  "0,4": 0.6802,
+  "1,0": 0.9475,
+  "1,1": 0.8178,
+  "1,2": 0.7127,
+  "1,3": 0.6433,
+  "1,4": 0.4691,
+  "2,0": 1.1525,
+  "2,1": 0.9084,
+  "2,2": 0.6877,
+  "2,3": 0.4624,
+  "2,4": 0.2147,
+  "3,0": 0.8839,
+  "3,1": 0.5889,
+  "3,2": 0.3146,
+  "3,3": 0.0881,
+  "3,4": 0.0466,
+  "4,0": 0.6432,
+  "4,1": 0.3778,
+  "4,2": 0.0926,
+  "4,3": 0.0817,
+  "4,4": 0.6944,
+  "5,0": 0.5845,
+  "5,1": 0.2455
+ }
+};
+
+return { WIN_CAL_GEN4 };
+})();
+
 __m["src/core/game.js"] = (function () {
 // 対局エンジン(四人麻雀 Mリーグルール / 三人麻雀 関西三麻)
 const { toCounts, doraFromIndicator, sortTiles, isHonor, isDragon, isWind, NORTH, kindToName } = __m["src/core/tiles.js"];
@@ -14528,6 +14811,8 @@ const { doraDangerFor } = __m["src/data/doraDangerTable.js"];
 const { hanEstimateCalibFor } = __m["src/data/hanEstimateCalibTable.js"];
 const { riichiValueFor } = __m["src/data/riichiValueTable.js"];
 const { winRateStateFor } = __m["src/data/winRateStateTable.js"];
+const { preTenpaiWinFor } = __m["src/data/preTenpaiWinTable.js"];
+const { WIN_CAL_GEN4 } = __m["src/data/winCalGen4Table.js"];
 const WIND_NAMES = ['東', '南', '西', '北'];
 // 王牌は14枚で固定(docs/research-rules.md)。先頭4枚が嶺上牌、その後ろがドラ表示。
 // 補充のたびに山の最後の牌を末尾へ足すので、5回目以降の嶺上牌は**末尾側**にある
@@ -14587,6 +14872,10 @@ class Game {
     this.riichiValue = opts.riichiValue !== undefined ? opts.riichiValue : riichiValueFor(rules.id);
     // 状態別の和了率の表(src/data/winRateStateTable.js)。使うのは winRateByState > 0 のときだけ
     this.winRateState = opts.winRateState !== undefined ? opts.winRateState : winRateStateFor(rules.id);
+    // 聴牌前の和了率の倍率(src/data/preTenpaiWinTable.js)。使うのは threatWinScale > 0 のときだけ
+    this.preTenpaiWin = opts.preTenpaiWin !== undefined ? opts.preTenpaiWin : preTenpaiWinFor(rules.id);
+    // Gen.4 で作り直した和了率の校正表(src/data/winCalGen4Table.js、四麻だけ)。使うのは winCalGen4 > 0 のときだけ
+    this.winCalGen4 = opts.winCalGen4 !== undefined ? opts.winCalGen4 : (WIN_CAL_GEN4.rule === rules.id ? WIN_CAL_GEN4 : null);
     // 和了率の校正表(tools/winrate-calib.mjs --emit)。渡されなければ校正しない
     this.winCal = opts.winCal || null;
     // **表が要る係数なのに表が無い**と、測ったときと違う打ち筋で動く。
@@ -14892,7 +15181,7 @@ class Game {
     // 打牌候補
     for (const t of s.hand) {
       if (s.riichi && s.drawn && t.id !== s.drawn.id) continue;
-      if (this.rules.nukiDora === 'north' && this.rules.kitaInHand === 'yakumanOnly' && t.kind === NORTH) continue; // 北は抜くか手牌で使う
+      // 北は抜くだけでなく切ることもできる(人の決定 2026-10-03)。切った北でロンできるのは役満だけ(tryScore)
       if (st.kuikaeForbidden && st.kuikaeForbidden.has(t.kind)) continue;
       opts.discardable.push(t);
     }
@@ -15162,8 +15451,10 @@ class Game {
       if (res) options.ron = res;
       if (!s.riichi && !lastTile) {
         const counts = this.handCounts(s.index);
-        if (counts[tile.kind] >= 2) options.pon = true;
-        if (counts[tile.kind] >= 3 && st.rinshanUsed < 4) options.kan = true;
+        // 北を手牌に使えないルールでは、切られた北は鳴けない(北ポン不可)
+        const noCall = this.rules.nukiDora === 'north' && this.rules.kitaInHand === 'yakumanOnly' && tile.kind === NORTH;
+        if (!noCall && counts[tile.kind] >= 2) options.pon = true;
+        if (!noCall && counts[tile.kind] >= 3 && st.rinshanUsed < 4) options.kan = true;
         if (this.rules.chiAllowed !== false && this.P === 4 && s.index === (from + 1) % this.P && !isHonor(tile.kind)) {
           const n = tile.kind % 9, base = tile.kind - n;
           const has = (d) => n + d >= 0 && n + d <= 8 && counts[base + n + d] > 0;
@@ -15833,7 +16124,7 @@ const RULES_TEXT = {
       ['積み棒', '1,000', '200(天鳳)'],
       ['流し満貫', '不採用', '天鳳は採用'],
     ],
-    appNotes: ['北は「抜く」か「手牌に残す」かを選べます(捨てることはできません)。役満以外の手で北を手牌に使っていると和了できません。'],
+    appNotes: ['北は「抜く」「捨てる」「手牌に残す」から選べます(捨てた北はポン・カンできません)。役満以外の手で北を手牌に使っていると和了できません。'],
   },
 };
 
@@ -17007,8 +17298,8 @@ const GENERATIONS = {
   "updated": "2026-09-27",
   "rules": {
     "mleague": {
-      "generation": 2,
-      "updatedAt": "2026-09-27",
+      "generation": 4,
+      "updatedAt": "2026-10-01",
       "ladder": [
         {
           "generation": 1,
@@ -17094,6 +17385,11 @@ const GENERATIONS = {
             "dealerTenpaiBonus": 0,
             "winRateByState": 0,
             "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17190,6 +17486,11 @@ const GENERATIONS = {
             "dealerTenpaiBonus": 0,
             "winRateByState": 0,
             "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17286,6 +17587,11 @@ const GENERATIONS = {
             "dealerTenpaiBonus": 0,
             "winRateByState": 0,
             "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17382,6 +17688,11 @@ const GENERATIONS = {
             "dealerTenpaiBonus": 0,
             "winRateByState": 0,
             "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
             "shapeTierTie": 0,
             "keitenLate": 1,
             "riichiTileRead": 1,
@@ -17484,6 +17795,11 @@ const GENERATIONS = {
             "dealerTenpaiBonus": 0,
             "winRateByState": 0,
             "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17722,7 +18038,7 @@ const { formatDanger } = __m["src/core/danger.js"];
 const { getRules } = __m["src/core/rules.js"];
 const { evaluateDiscards, explainCandidate, pushFoldAdvice } = __m["src/core/evaluate.js"];
 const { kindToName } = __m["src/core/tiles.js"];
-const { shanten, waits } = __m["src/core/shanten.js"];
+const { shanten, waits, ukeire, shantenNoKokushi } = __m["src/core/shanten.js"];
 const { formatScore, formatHanFu, formatYaku } = __m["src/core/score.js"];
 const { yakuInfo, hanText } = __m["src/data/yakuInfo.js"];
 const { el, tileEl, backTileEl } = __m["src/ui/tiles.js"];
@@ -17800,7 +18116,7 @@ function renderPractice(app) {
   app.appendChild(el('h1', { text: '実戦(AI対局)' }));
   const setup = el('div', { class: 'card practice-setup' });
   // 実戦の画面は**対局だけ**にする(人の要望 2026-10-02)。最初は設定だけを出し、
-  // 対局開始で卓を全画面に開く。卓の「メニュー」で設定に戻り、ここから続きへ戻れる
+  // 対局開始で卓を全画面に開く。卓の「ロビーに戻る」で離れても、実戦を開き直せばここから続きへ戻れる
   // 途中の対局があるときは「続きから」を先頭・強い色にし、こちらは「最初から」に下げる(押すと今の対局は捨てる)
   const startBtn = el('button', { class: 'primary', text: '対局開始', onClick: () => {
     if (game && !game.state.gameOver && !confirm('今の対局を終えて、最初から始めますか?')) return;
@@ -17981,10 +18297,12 @@ function renderPractice(app) {
     // 全画面。ツールバーごと全画面にするので、このボタンは全画面の中にも残る
     const fbtn = el('button', {
       class: `ms-toolbtn full ${isFull() ? 'on' : ''}`,
-      text: isFull() ? 'メニュー' : '全画面',
-      title: isFull() ? '設定の画面に戻る(対局はそのまま。「対局に戻る」で続ける)' : '卓に画面を全部渡す',
+      // 「メニュー」は設定の画面に戻るだけで、どこへ行くか分からなかった(人の要望 2026-10-03)。
+      // ロビーへ戻す。対局は捨てずに持っておくので、ロビーから実戦を開けば「対局に戻る」で続く
+      text: isFull() ? 'ロビーに戻る' : '全画面',
+      title: isFull() ? 'ロビーに戻る(対局はそのまま。実戦を開いて「対局に戻る」で続ける)' : '卓に画面を全部渡す',
     });
-    fbtn.addEventListener('click', () => { if (isFull()) exitFull(); else enterFull(); });
+    fbtn.addEventListener('click', () => { if (isFull()) location.hash = '#/'; else enterFull(); });
     toolbar.appendChild(fbtn);
     // 対局が始まったら設定は畳む。卓に画面を渡すため。開き直せるようにボタンを置く
     if (game && !isFull()) {
@@ -18254,7 +18572,11 @@ function renderPractice(app) {
   /** 段ごとの数字。受け入れは枚数、放銃率は % */
   function rowText(r, c, hints) {
     if (r.cls === 'hr-danger') return formatDanger(c.danger);
-    return c.shanten > hints.best.shanten ? '↓' : `${c.total}`;   // ↓ = 向聴が戻る打牌
+    // ↓ = 向聴が戻る打牌。受入枚数と同じく国士無双を除いた向聴で比べる
+    const u = hints.ukeView?.get(c.kind);
+    if (!u) return c.shanten > hints.best.shanten ? '↓' : `${c.total}`;
+    const bestSh = Math.min(...[...hints.ukeView.values()].map((x) => x.shanten));
+    return u.shanten > bestSh ? '↓' : `${u.total}`;
   }
 
   /** 段ごとの色。放銃率だけ高いほど赤くする */
@@ -18277,14 +18599,18 @@ function renderPractice(app) {
   function meldGroup(m, rot, seat) {
     const grp = el('div', { class: `ms-meld ${rot ? 'col' : 'row'}` });
     const called = m.called || (m.from !== undefined && m.from !== seat ? m.tiles[m.tiles.length - 1] : null);
-    for (const t of m.tiles) {
-      const e = tileEl(t, { className: `${called && t.id === called.id ? 'called' : ''} ${markOf(t)}` });
+    // 暗槓は両端の2枚を裏向きにする(他家の暗槓が表向きで出ていた。人の報告 2026-10-03)
+    const isAnkan = m.type === 'ankan';
+    m.tiles.forEach((t, i) => {
+      const e = isAnkan && (i === 0 || i === m.tiles.length - 1)
+        ? backTileEl()
+        : tileEl(t, { className: `${called && t.id === called.id ? 'called' : ''} ${markOf(t)}` });
       const isCalled = called && t.id === called.id;
       // 横に並ぶ副露の鳴いた牌は、横倒しの牌が収まる枠に入れる。枠なしで回すと隣の牌に被った(人の指摘 2026-10-02)
       grp.appendChild(rot
         ? el('div', { class: `side-tile ${rot > 0 ? 'r90' : 'r270'}` }, [Object.assign(e, { style: `transform:rotate(${rot}deg)` })])
         : isCalled ? el('div', { class: 'meld-side' }, [e]) : e);
-    }
+    });
     return grp;
   }
 
@@ -18314,7 +18640,7 @@ function renderPractice(app) {
         const stack = el('span', { class: `tile-hint2 ${c && c === hints.best ? 'best' : ''}` });
         for (const r of rows) stack.appendChild(el('span', { class: `h-row ${r.cls} ${c ? rowClass(r, c, hints) : ''}`, text: c ? rowText(r, c, hints) : '' }));
         e.appendChild(stack);
-        if (c) e.title = `${kindToName(t.kind)}切り: ${c.shanten === 0 ? '聴牌' : c.shanten + '向聴'} 受け入れ${c.total}枚 放銃率${formatDanger(c.danger)}% 局収支${c.ev >= 0 ? '+' : ''}${c.ev}`;
+        if (c) e.title = `${kindToName(t.kind)}切り: ${c.shanten === 0 ? '聴牌' : c.shanten + '向聴'} 受け入れ${hints.ukeView?.get(t.kind)?.total ?? c.total}枚 放銃率${formatDanger(c.danger)}% 局収支${c.ev >= 0 ? '+' : ''}${c.ev}`;
       }
       if (canDiscard) {
         // 1回目で選び、選んでいる牌をもう1回押すと切る
@@ -18377,7 +18703,8 @@ function renderPractice(app) {
 
 
     // アクション
-    const actions = el('div', { class: 'ms-actions' });
+    // 手牌の上に数字の段が出ているときは、ボタンを段より上に置く(暗槓のボタンが数字に被った。人の報告 2026-10-03)
+    const actions = el('div', { class: `ms-actions ${hints ? 'over-hints' : ''}` });
     if (acting) {
       const o = prompt.options;
       if (o.canTsumo) actions.appendChild(el('button', { class: 'act win', text: `ツモ ${formatScore(o.canTsumo)}`, onClick: () => doAction({ type: 'tsumo' }, [{ type: 'win', winners: [0], from: null }]) }));
@@ -18501,6 +18828,17 @@ function renderPractice(app) {
       threats, turn: game.turnNumber(0), isDealer: st.dealer === 0, scores: st.seats.map((s) => s.score), mySeat: 0,
       round: st.round, isLastKyoku: game.isLastKyoku(), remainingTurns: Math.floor(game.wallCount() / game.P),
     });
+    // 手牌の上の受入枚数は国士無双を除いて数える(人の決定 2026-10-03)。打牌の評価は result のまま
+    const visible = game.visibleCounts(0);
+    const uke = new Map();
+    for (const c of result.candidates) {
+      if (counts[c.kind] === 0 || uke.has(c.kind)) continue;
+      counts[c.kind]--;
+      const u = ukeire(counts, me.melds.length, visible, shantenNoKokushi);
+      counts[c.kind]++;
+      uke.set(c.kind, { shanten: u.shanten, total: u.total });
+    }
+    result.ukeView = uke;
     return { result, pf, threats };
   }
 
@@ -18829,6 +19167,9 @@ function renderPractice(app) {
     if (game && !game.state.gameOver) saved = { game, ruleId, opponent, gradeCount, reviewLog, kyokuReview, lastAnalysis, prompt };
     // 全画面のまま別の画面へ行くと、卓が消えたのに画面が覆われたままになる
     if (fullMode) exitFull();
+    // 端末の全画面から抜けるときは後片付けを fullscreenchange に任せるが、その見張りは下で外す。
+    // 体のクラスはここで外す(残るとロビーから先の画面でスクロールできない)
+    document.body.classList.remove('ms-immersive');
     document.removeEventListener('fullscreenchange', onFullChange);
     document.removeEventListener('webkitfullscreenchange', onFullChange);
     window.removeEventListener('keydown', onKey);
@@ -19933,7 +20274,8 @@ function renderData(app) {
     el('div', {}, [el('span', { class: 'muted small', text: '校正に使った自己対戦' }), el('b', { text: `${CALIBRATION.kyoku.toLocaleString()}局` })]),
     ...Object.entries(GENERATIONS.rules).map(([rule, g]) => el('div', {}, [
       el('span', { class: 'muted small', text: `AI世代(${rule === 'kansai3' ? '三麻' : '四麻'})` }),
-      el('b', { text: `Gen.${g.generation}` }),
+      // 評価エンジンは常に最新の世代(人の決定 2026-10-03)。控えの欄ではなく、世代の階段のいちばん上を出す
+      el('b', { text: `Gen.${(g.ladder?.length ? g.ladder[g.ladder.length - 1].generation : g.generation)}` }),
     ])),
   ]));
   const calTable = el('table');
@@ -20509,12 +20851,16 @@ const { kindOf } = __m["src/core/tiles.js"];
 function renderScore(app) {
   let ruleId = 'mleague';
   app.appendChild(el('h1', { text: '点数' }));
-  const body = el('div', { class: 'two-col' });
-  app.appendChild(segmented({
-    label: 'ルール', value: ruleId,
+  const body = el('div', { class: 'two-col score-cols' });
+  // ルールの切替は上の帯の右端に置く。本文の上に1段使うと、表を見られる高さが減る(人の要望 2026-10-03)
+  const sw = segmented({
+    value: ruleId,
     options: [{ value: 'mleague', text: 'Mリーグ', note: '四人' }, { value: 'kansai3', text: '関西三麻', note: '三人' }],
     onChange: (v) => { ruleId = v; draw(); },
-  }));
+  });
+  sw.classList.add('top-seg');
+  const topbar = document.querySelector('.topbar');
+  if (topbar) topbar.appendChild(sw); else app.appendChild(sw);
   app.appendChild(body);
 
   function draw() {
@@ -20525,6 +20871,7 @@ function renderScore(app) {
     body.appendChild(tableCard(rules));
   }
   draw();
+  return () => sw.remove();
 }
 
 /** 符の作り方 */
@@ -20598,7 +20945,8 @@ function formulaCard(rules) {
 /** 早見表 */
 function tableCard(rules) {
   const st = scoreTable(rules);
-  const c = el('div', { class: 'card table-wrap' });
+  // 全幅で出し、1つの欄を折り返さない。左右にスクロールせずに読めるようにする(人の要望 2026-10-03)
+  const c = el('div', { class: 'card table-wrap score-quick' });
   c.appendChild(el('h2', { text: '早見表' }));
   const t = el('table');
   t.appendChild(el('tr', {}, ['符', '1翻', '2翻', '3翻', '4翻'].map((h) => el('th', { text: h }))));
