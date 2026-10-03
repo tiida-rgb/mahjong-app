@@ -1423,7 +1423,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
-<script>window.__GEN_GAMES = {"mleague":{"generation":4,"games":1647432,"runs":26,"asOf":"2026-10-03"}};</script>
+<script>window.__GEN_GAMES = {};</script>
 </head>
 <body>
 <header class="topbar">
@@ -3425,182 +3425,182 @@ __m["src/data/meterCal.js"] = (function () {
 // 注意: これは **AI を欠けさせて取った対応表**で、人間が同じ曲線に乗る保証はない。
 
 const METER_CAL = {
-  measuredAt: "2026-10-01",
+  measuredAt: "2026-10-03",
   hanchan: 120,
   // **どの打ち筋で測ったかを残す。** この表は AI を欠けさせて取るので、
   // 土台の打ち筋が変われば対応表も変わる(実測: 既定の AI と Gen.4 で
   // 受け入れ最大の一致率が高水準側で 2〜3pt 違った)
-  generation: 4,
+  generation: 5,
   seed: 8100000,
   skills: {
   "shanten": {
     "points": [
       {
         "level": 0,
-        "measured": 0.592,
-        "n": 16397
+        "measured": 0.591,
+        "n": 16587
       },
       {
         "level": 0.25,
-        "measured": 0.661,
-        "n": 16593
+        "measured": 0.658,
+        "n": 16603
       },
       {
         "level": 0.5,
-        "measured": 0.734,
-        "n": 16778
+        "measured": 0.737,
+        "n": 16910
       },
       {
         "level": 0.75,
-        "measured": 0.823,
-        "n": 16269
+        "measured": 0.826,
+        "n": 17032
       },
       {
         "level": 1,
-        "measured": 0.936,
-        "n": 15551
+        "measured": 0.945,
+        "n": 15320
       }
     ],
     "monotone": true,
-    "floor": 0.592,
-    "ceil": 0.936,
-    "span": 0.344,
+    "floor": 0.591,
+    "ceil": 0.945,
+    "span": 0.354,
     "usable": true
   },
   "ukeire": {
     "points": [
       {
         "level": 0,
-        "measured": 0.191,
-        "n": 6446
+        "measured": 0.194,
+        "n": 6511
       },
       {
         "level": 0.25,
-        "measured": 0.318,
-        "n": 6395
+        "measured": 0.32,
+        "n": 6478
       },
       {
         "level": 0.5,
         "measured": 0.456,
-        "n": 6575
+        "n": 6662
       },
       {
         "level": 0.75,
-        "measured": 0.591,
-        "n": 6541
+        "measured": 0.594,
+        "n": 6501
       },
       {
         "level": 1,
-        "measured": 0.739,
-        "n": 6729
+        "measured": 0.744,
+        "n": 6674
       }
     ],
     "monotone": true,
-    "floor": 0.191,
-    "ceil": 0.739,
-    "span": 0.548,
+    "floor": 0.194,
+    "ceil": 0.744,
+    "span": 0.55,
     "usable": true
   },
   "ukeireFar": {
     "points": [
       {
         "level": 0,
-        "measured": 0.153,
-        "n": 4636
+        "measured": 0.146,
+        "n": 4763
       },
       {
         "level": 0.25,
-        "measured": 0.277,
-        "n": 4298
+        "measured": 0.274,
+        "n": 4547
       },
       {
         "level": 0.5,
-        "measured": 0.416,
-        "n": 4191
+        "measured": 0.4,
+        "n": 4492
       },
       {
         "level": 0.75,
-        "measured": 0.563,
-        "n": 4305
+        "measured": 0.565,
+        "n": 4322
       },
       {
         "level": 1,
-        "measured": 0.712,
-        "n": 4233
+        "measured": 0.716,
+        "n": 4164
       }
     ],
     "monotone": true,
-    "floor": 0.153,
-    "ceil": 0.712,
-    "span": 0.559,
+    "floor": 0.146,
+    "ceil": 0.716,
+    "span": 0.57,
     "usable": true
   },
   "ukeireIshanten": {
     "points": [
       {
         "level": 0,
-        "measured": 0.262,
-        "n": 2085
+        "measured": 0.253,
+        "n": 2156
       },
       {
         "level": 0.25,
-        "measured": 0.373,
-        "n": 1951
+        "measured": 0.376,
+        "n": 1987
       },
       {
         "level": 0.5,
-        "measured": 0.511,
-        "n": 2104
+        "measured": 0.529,
+        "n": 2148
       },
       {
         "level": 0.75,
-        "measured": 0.659,
-        "n": 2062
+        "measured": 0.666,
+        "n": 2080
       },
       {
         "level": 1,
-        "measured": 0.791,
-        "n": 2062
+        "measured": 0.807,
+        "n": 2083
       }
     ],
     "monotone": true,
-    "floor": 0.262,
-    "ceil": 0.791,
-    "span": 0.529,
+    "floor": 0.253,
+    "ceil": 0.807,
+    "span": 0.554,
     "usable": true
   },
   "ukeireTenpai": {
     "points": [
       {
         "level": 0,
-        "measured": 0.404,
-        "n": 465
+        "measured": 0.462,
+        "n": 442
       },
       {
         "level": 0.25,
-        "measured": 0.472,
-        "n": 506
+        "measured": 0.56,
+        "n": 375
       },
       {
         "level": 0.5,
         "measured": 0.583,
-        "n": 487
+        "n": 434
       },
       {
         "level": 0.75,
-        "measured": 0.615,
-        "n": 447
+        "measured": 0.616,
+        "n": 450
       },
       {
         "level": 1,
-        "measured": 0.758,
-        "n": 434
+        "measured": 0.705,
+        "n": 427
       }
     ],
     "monotone": true,
-    "floor": 0.404,
-    "ceil": 0.758,
-    "span": 0.354,
+    "floor": 0.462,
+    "ceil": 0.705,
+    "span": 0.243,
     "usable": true
   },
   "visible": {
@@ -3608,33 +3608,33 @@ const METER_CAL = {
       {
         "level": 0,
         "measured": 0,
-        "n": 214
+        "n": 201
       },
       {
         "level": 0.25,
-        "measured": 0.018,
-        "n": 227
+        "measured": 0.005,
+        "n": 189
       },
       {
         "level": 0.5,
-        "measured": 0.049,
-        "n": 245
+        "measured": 0.03,
+        "n": 231
       },
       {
         "level": 0.75,
-        "measured": 0.042,
-        "n": 214
+        "measured": 0.049,
+        "n": 244
       },
       {
         "level": 1,
-        "measured": 0.06,
-        "n": 284
+        "measured": 0.065,
+        "n": 232
       }
     ],
-    "monotone": false,
+    "monotone": true,
     "floor": 0,
-    "ceil": 0.06,
-    "span": 0.06,
+    "ceil": 0.065,
+    "span": 0.065,
     "usable": false
   }
 },
@@ -9619,6 +9619,26 @@ const DEFAULT_AI_PARAMS = {
   // 戻さない1向聴の聴牌の良形率が shantenBackGoodRateMax 未満か、戻さない候補がドラ切りなら戻す
   shantenBackRatio: 0,
   shantenBackGoodRateMax: 0.3,
+  shantenBackTurnMax: 0,      // 戻すのはこの巡目まで(打つ人の巡目。0 = 上限なし)
+
+  // ---- 聴牌を取らない(枚、0=使わない、A/B は 2)----
+  // 脅威なし・リーチなしで聴牌が取れるとき、取った場合の待ちの残り枚数が refuseTenpaiRemain 以下で、(a) 愚形1種で良形の1向聴に戻せる /
+  // (b) 副露手でロンの役なし / (c) 門前のフリテン、のどれかなら聴牌を取らず1向聴の最善を切る(ai.js の refuseTenpaiPick)
+  refuseTenpaiRemain: 0,
+
+  // ---- 序盤の孤立牌の順(0=切、1=入)----
+  // 1〜6巡目・脅威なし・門前で、1番手が孤立牌のとき、受け入れが同点の孤立牌どうしを 孤立1・9 < 生牌の客風 < 孤立2・8 < 見えている客風 < 役牌 < 孤立3〜7
+  // の順で先に切る(ai.js の isolatedRank。順位にだけ使い、tileValue は変えない)
+  earlyIsolatedOrder: 0,
+
+  // ---- 序盤の安い遠い鳴きを見送る(点、0=使わない、A/B は 2000)----
+  // チーと役牌以外のポンで、自分の巡目が callMinPtsTurn 以下、鳴いた後の打点見込みが callMinPts 未満なら鳴かない(鳴いて聴牌かつ役ありは鳴く)
+  callMinPts: 0,
+  callMinPtsTurn: 6,
+
+  // ---- 受け入れを大きく減らす鳴きを見送る(枚、0=使わない、A/B は 20)----
+  // チーと役牌以外のポンで、鳴いた後も1向聴以上のとき、鳴く前の受け入れ − 鳴いた後の受け入れ が callUkeireLossMax 枚以上なら鳴かない
+  callUkeireLossMax: 0,
 
   // ---- 危険度の回帰の補正を riichiTileRead の後に掛ける版(0〜1)----
   // learnedDanger と同じ形(形モデルの放銃率に掛けるロジスティック回帰)で、重みは riichiTileRead の倍率を掛けた後の値に当て、宣言牌の4特徴は外した
@@ -9732,6 +9752,12 @@ const PARAM_RANGES = {
   outLikelyRiichi: [0, 1, 0.5],
   shantenBackRatio: [0, 6, 1],
   shantenBackGoodRateMax: [0, 1, 0.1],
+  shantenBackTurnMax: [0, 18, 3],
+  refuseTenpaiRemain: [0, 4, 1],
+  earlyIsolatedOrder: [0, 1, 1],
+  callMinPts: [0, 4000, 500],
+  callMinPtsTurn: [1, 18, 3],
+  callUkeireLossMax: [0, 40, 5],
   learnedDangerV2: [0, 1, 0.5],
   openRonByYakuSignal: [0, 1, 0.5],
   shapeTierTie: [0, 1, 1],
@@ -9857,7 +9883,7 @@ function validateGroups() {
  *   evalMode / lookaheadTop … 評価方法そのものの切り替え(数値の微調整ではない)
  *   goodShapeWeight / goodShapeTop … 0以外にすると1手先読みが走る(コストは tools/bench.mjs)
  */
-const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll', 'threatWinScale', 'winCalGen4', 'outLikelyRiichi', 'shantenBackRatio', 'shantenBackGoodRateMax', 'learnedDangerV2', 'openRonByYakuSignal'];
+const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll', 'threatWinScale', 'winCalGen4', 'outLikelyRiichi', 'shantenBackRatio', 'shantenBackGoodRateMax', 'shantenBackTurnMax', 'learnedDangerV2', 'openRonByYakuSignal', 'refuseTenpaiRemain', 'earlyIsolatedOrder', 'callMinPts', 'callMinPtsTurn', 'callUkeireLossMax'];
 
 /**
  * 三麻でしか使われない係数(ai.js の game.P === 3 の分岐)。
@@ -9970,7 +9996,11 @@ const GATED_BY = {
   winCalGen4: { all: ['evalMode'] },
   shantenBackRatio: { all: ['evalMode'] },
   shantenBackGoodRateMax: { all: ['evalMode', 'shantenBackRatio'] },
+  shantenBackTurnMax: { all: ['evalMode', 'shantenBackRatio'] },
   openRonByYakuSignal: { all: ['dangerModel'] },
+  refuseTenpaiRemain: { all: ['evalMode'] },
+  earlyIsolatedOrder: { all: ['evalMode'] },
+  callMinPtsTurn: { all: ['callMinPts'] },
 };
 
 /**
@@ -10320,20 +10350,20 @@ __m["src/data/waitScaleTable.js"] = (function () {
 // 使うのは src/core/ai.js(係数 wallAwareWinRateScaled)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const WAIT_SCALE = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 300,
   "seedFrom": 85000000,
   "seedTo": 85000299,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "bands": [
    "0-5",
    "6-11",
    "12-99"
   ],
   "ratio": [
-   0.9596,
-   0.9069,
-   0.8573
+   0.9599,
+   0.9065,
+   0.8524
   ]
  }
 };
@@ -10935,7 +10965,7 @@ __m["src/core/ai.js"] = (function () {
 const { toCounts, isYaochu, isHonor, isDragon, isSimple, suitOf, NORTH } = __m["src/core/tiles.js"];
 const { shanten, shantenStandard, analyzeDiscards, ukeire, waits } = __m["src/core/shanten.js"];
 const { dangerAgainstThreats } = __m["src/core/danger.js"];
-const { evaluateDiscards, lookaheadShape } = __m["src/core/evaluate.js"];
+const { evaluateDiscards, lookaheadShape, handHanEstimate, hanToPoints } = __m["src/core/evaluate.js"];
 const { blockQuality, blockProfile } = __m["src/core/blocks.js"];
 const { DEFAULT_AI_PARAMS, TABLE_PARAMS } = __m["src/core/aiParams.js"];
 const { notHeldExpect } = __m["src/core/wallRead.js"];
@@ -10950,6 +10980,7 @@ const { trackCalls, oppFeatures, callTenpaiProb } = __m["src/core/callTenpai.js"
 const { allLastRanks, allLastRiichiDecision } = __m["src/core/allLastRiichi.js"];
 const { riichiValueOf } = __m["src/core/riichiValue.js"];
 const { clueOf: openRonClueOf } = __m["src/core/openRonYaku.js"];
+const { hasRonYakuHand } = __m["src/core/winRateState.js"];
 const { features: proFeatures, riichiProb: proRiichiProb } = __m["src/core/proDama.js"];
 const { publicCounts: learnedPublic, declOf: learnedDeclOf, isLearnedTarget } = __m["src/core/learnedDanger.js"];
 const { SKILLS, degradedChoice } = __m["src/core/handicap.js"];
@@ -11459,7 +11490,19 @@ function aiChooseAction(game, seat, options) {
       if (choice === pre) choice = shapeTierPick(choice, top, eff, (c) => c.ev, w, counts);
     }
     // 脅威なし・門前・1向聴で、向聴を1つ戻す候補の受け入れが十分多く、戻さない1向聴が愚形寄りかドラ切りなら戻す(shantenBackRatio。0 なら使わない)
-    if (p.shantenBackRatio > 0 && bestShanten === 1) choice = shantenBackPick(game, seat, p, choice, cands, counts, melds, visible);
+    // 1〜6巡目・門前で、1番手が孤立牌なら、受け入れが同点の孤立牌の中で順位の小さいものから切る(earlyIsolatedOrder。0 なら使わない)
+    if (p.earlyIsolatedOrder > 0 && top.length > 1 && game.turnNumber(seat) <= 6) choice = earlyIsolatedPick(game, seat, choice, top, counts);
+    // 聴牌が取れても、待ちが少なく(愚形1種で良形の1向聴に戻せる / 副露手で役なし / 門前のフリテン)なら取らない(refuseTenpaiRemain。0 なら使わない)
+    if (p.refuseTenpaiRemain > 0 && bestShanten === 0 && choice.shanten === 0) {
+      const alt = refuseTenpaiPick(game, seat, p, choice, cands, counts, melds, visible);
+      if (alt) {
+        const top1 = cands.filter((c) => c.shanten === 1);
+        const eff1 = effScorer(top1, { game, seat, p, counts, melds, visible, bestShanten: 1, canRiichi: options.canRiichi });
+        choice = top1.reduce((a, b) => (eff1(b) > eff1(a) || (eff1(b) === eff1(a) && b.total > a.total) ? b : a), top1[0]);
+      }
+    }
+    // shantenBackTurnMax(巡目の上限。0 なら上限なし)を超えた巡目では戻さない
+    if (p.shantenBackRatio > 0 && bestShanten === 1 && !(p.shantenBackTurnMax > 0 && game.turnNumber(seat) > p.shantenBackTurnMax)) choice = shantenBackPick(game, seat, p, choice, cands, counts, melds, visible);
     // 孤立した字牌を切るときは、字牌どうしの中でだけ、見えている字牌を残して生牌から切る側に替える(honorSeenKeep)
     if (p.honorSeenKeep > 0 && top.length > 1) choice = honorSeenPick(game, seat, p, choice, top, eff, counts);
     // リーチ者がいないとき、副露者の当たり牌を、受け入れをほとんど失わない同じ向聴の候補に替えてよける(openThreatDodge)
@@ -11653,8 +11696,56 @@ function aiChooseClaim(game, seat, options) {
     return null;
   }
   const claim = claimByShape(game, seat, options, p);
-  if (claim || !p.keitenLate) return claim;
-  return keitenClaim(game, seat, options);
+  const c2 = claim || !p.keitenLate ? claim : keitenClaim(game, seat, options);
+  // 序盤の安い遠い鳴き(チー・役牌以外のポン)は見送る(callMinPts。0 なら使わない)
+  if (c2 && p.callMinPts > 0 && callMinPtsSkip(game, seat, p, c2)) return null;
+  // 聴牌にならない鳴きで受け入れを大きく減らすもの(チー・役牌以外のポン)は見送る(callUkeireLossMax。0 なら使わない)
+  if (c2 && p.callUkeireLossMax > 0 && callUkeireSkip(game, seat, p, c2)) return null;
+  return c2;
+}
+
+/**
+ * 鳴きを見送るか(callUkeireLossMax)。チーと役牌以外のポンで、鳴いた後も1向聴以上(受け入れ最大の打牌の後)のとき、
+ * 鳴く前の13枚の受け入れ(見えていない残り枚数)− 鳴いた後の受け入れ が callUkeireLossMax 枚以上なら true
+ */
+function callUkeireSkip(game, seat, p, claim) {
+  if (claim.type !== 'pon' && claim.type !== 'chi') return false;
+  const st = game.state, s = st.seats[seat], k = st.lastDiscard.tile.kind;
+  if (claim.type === 'pon' && (isDragon(k) || k === game.seatWind(seat) || k === game.roundWind())) return false;
+  const visible = game.visibleCounts(seat);
+  const counts = game.handCounts(seat);
+  const before = ukeire(counts, s.melds.length, visible).total;
+  const use = claim.type === 'pon' ? [k, k] : claim.chi;
+  const c2 = counts.slice();
+  for (const u of use) c2[u]--;
+  const best = analyzeDiscards(c2, s.melds.length + 1, visible).candidates[0];
+  if (!best || best.shanten <= 0) return false;
+  return before - best.total >= p.callUkeireLossMax;
+}
+
+/**
+ * 鳴きを見送るか(callMinPts)。チーと役牌以外のポンについて、自分の巡目(捨て牌の数 + 1)が callMinPtsTurn 以下で、
+ * 鳴いた後(晒した2枚を抜いた11枚 + 副露、受け入れ最大の打牌の後)の打点見込み(handHanEstimate → hanToPoints、meldHanFix=1 の数え方)が callMinPts 未満なら true。
+ * 鳴いて聴牌し、ロンの役があるときは見送らない
+ */
+function callMinPtsSkip(game, seat, p, claim) {
+  if (claim.type !== 'pon' && claim.type !== 'chi') return false;
+  if (game.turnNumber(seat) > p.callMinPtsTurn) return false;
+  const st = game.state, s = st.seats[seat], k = st.lastDiscard.tile.kind;
+  const sw = game.seatWind(seat), rw = game.roundWind();
+  if (claim.type === 'pon' && (isDragon(k) || k === sw || k === rw)) return false;
+  const use = claim.type === 'pon' ? [k, k] : claim.chi;
+  const counts = game.handCounts(seat);
+  for (const u of use) counts[u]--;
+  const meld = { type: claim.type, kind: claim.type === 'pon' ? k : Math.min(k, ...use), tiles: [...use, k].map((x) => ({ kind: x, red: false })) };
+  const melds = [...s.melds, meld];
+  const best = analyzeDiscards(counts, melds.length, game.visibleCounts(seat)).candidates[0];
+  if (!best) return false;
+  const c13 = counts.slice(); c13[best.kind]--;
+  if (best.shanten === 0 && hasRonYakuHand(c13, melds, waits(c13, melds.length), { seatWind: sw, roundWind: rw, isDealer: seat === st.dealer, rules: game.rules })) return false;
+  const red = s.hand.filter((t) => t.red).length;
+  const han = handHanEstimate(c13, melds, { doraKinds: game.doraKinds(), redCount: red, kitaCount: s.kita.length, seatWind: sw, roundWind: rw, meldHanFix: 1, yakuPotentialWeight: p.yakuPotentialWeight });
+  return hanToPoints(han, seat === st.dealer) < p.callMinPts;
 }
 
 /**
@@ -11922,6 +12013,67 @@ function tenpaiEndPick(cands, a, b, w, t) {
     if (x > bestScore) { bestScore = x; best = i; }
   }
   return cands[best];
+}
+
+/**
+ * 孤立牌の順位(earlyIsolatedOrder。小さいほうを先に切る)。孤立牌でなければ null。
+ * 孤立1・9 = 1 / 生牌の客風 = 1.5 / 孤立2・8 = 2 / 見えている客風(公開で1枚以上)= 2.5 / 役牌 = 2.75 / 孤立3〜7 = 3。
+ * 孤立 = 手に1枚で、数牌は同じ色の差2以内に牌が無い
+ */
+function isolatedRank(kind, counts, pub, seatWind, roundWind) {
+  if (counts[kind] !== 1) return null;
+  if (isHonor(kind)) {
+    if (isDragon(kind) || kind === seatWind || kind === roundWind) return 2.75;
+    return pub[kind] >= 1 ? 2.5 : 1.5;
+  }
+  const n = kind % 9, base = kind - n;
+  for (let d = -2; d <= 2; d++) { const m = n + d; if (d !== 0 && m >= 0 && m <= 8 && counts[base + m] > 0) return null; }
+  return n === 0 || n === 8 ? 1 : n === 1 || n === 7 ? 2 : 3;
+}
+
+/**
+ * 1番手 choice が孤立牌のとき、受け入れ枚数(c.total)が同点の孤立牌の候補(同じ向聴)の中で順位が最小のものを返す。
+ * 順位も同点なら choice のまま。門前(暗槓以外の副露なし)だけ。価値(tileValue)は変えない
+ */
+function earlyIsolatedPick(game, seat, choice, cands, counts) {
+  const s = game.state.seats[seat];
+  if (s.melds.some((m) => m.type !== 'ankan')) return choice;
+  const pub = learnedPublic(game), sw = game.seatWind(seat), rw = game.roundWind();
+  const r0 = isolatedRank(choice.kind, counts, pub, sw, rw);
+  if (r0 === null) return choice;
+  let best = choice, bestR = r0;
+  for (const c of cands) {
+    if (c === choice || c.shanten !== choice.shanten || c.total !== choice.total) continue;
+    const r = isolatedRank(c.kind, counts, pub, sw, rw);
+    if (r !== null && r < bestR) { best = c; bestR = r; }
+  }
+  return best;
+}
+
+/**
+ * 聴牌を取らないか(refuseTenpaiRemain)。聴牌の打牌 choice の待ちの残り枚数(自分から見えていない枚数)が refuseTenpaiRemain 以下で、
+ * (a) 待ちが1種(愚形)で、1向聴に戻す候補のどれかの聴牌の良形率(lookaheadShape)が 50% 以上、(b) 副露手でロンの役が無い、(c) 門前で待ちが自分の河にある(フリテン)、
+ * のどれかなら true(1向聴の最善を切る)。1向聴の候補が無ければ false
+ */
+function refuseTenpaiPick(game, seat, p, choice, cands, counts, meldCount, visible) {
+  if (!cands.some((c) => c.shanten === 1)) return false;
+  const st = game.state, s = st.seats[seat];
+  const c13 = counts.slice(); c13[choice.kind]--;
+  const w = waits(c13, meldCount);
+  let remain = 0; for (const k of w) remain += Math.max(0, 4 - visible[k]);
+  if (remain > p.refuseTenpaiRemain) return false;
+  const open = s.melds.some((m) => m.type !== 'ankan');
+  if (open && !hasRonYakuHand(c13, s.melds, w, { seatWind: game.seatWind(seat), roundWind: game.roundWind(), isDealer: seat === st.dealer, rules: game.rules })) return true;   // (b)
+  if (!open && s.discards.some((d) => w.includes(d.tile.kind))) return true;   // (c)
+  if (w.length === 1) {   // (a)
+    for (const c of cands) {
+      if (c.shanten !== 1) continue;
+      const b = counts.slice(); b[c.kind]--;
+      const g = lookaheadShape(b, meldCount, visible, 1, ukeire(b, meldCount, visible)).goodRate;
+      if (g !== null && g >= 50) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -12257,7 +12409,7 @@ function effScorer(top, { game, seat, p, counts, melds, visible, bestShanten, ca
   return (c) => base(c) + (c._effGoodRate ?? 50) * p.goodShapeWeight / 100;
 }
 
-return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, foldKeitenFront, tenpaiEndCtx, shantenBackPick, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
+return { callTenpaiWeight, activeThreats, safeKeepValue, threatDanger, YAKUHAI_TIE_VALUE, evalAs, callEvCompare, aiChooseAction, hasYakuSource, aiChooseClaim, callUkeireSkip, callMinPtsSkip, foldKeitenFront, tenpaiEndCtx, isolatedRank, earlyIsolatedPick, refuseTenpaiPick, shantenBackPick, honorSeenPick, openDodgePick, CALLABLE_RATIO, wallAwareKinds };
 })();
 
 __m["src/core/tenpai.js"] = (function () {
@@ -12482,8 +12634,8 @@ __m["src/data/calibration.js"] = (function () {
 // このアプリの AI なので、公開されている対人統計ではなく自己対戦の実測値を使う。
 // 人間との比較(成績ページのベンチマーク)には引き続き src/data/stats.js を使う。
 //
-// 測定日: 2026-10-01 / 累計 20,851 局
-// 世代: mleague Gen.4 / kansai3 Gen.1
+// 測定日: 2026-10-03 / 累計 21,113 局
+// 世代: mleague Gen.5 / kansai3 Gen.1
 // 注: mleague honor3seen: サンプル0件のため公開値 0.5 を据え置き
 // 注: mleague honor0seen: サンプル0件のため公開値 6 を据え置き
 // 注: kansai3 honor3seen: サンプル0件のため公開値 0.5 を据え置き
@@ -12491,8 +12643,8 @@ __m["src/data/calibration.js"] = (function () {
 
 const CALIBRATION = {
   "version": "2026.10",
-  "generatedAt": "2026-10-01",
-  "kyoku": 20851,
+  "generatedAt": "2026-10-03",
+  "kyoku": 21113,
   "turns": [
     3,
     6,
@@ -12502,92 +12654,91 @@ const CALIBRATION = {
     18
   ],
   "mleague": {
-    "generation": 4,
+    "generation": 5,
     "seed": 1,
-    "kyoku": 12881,
+    "kyoku": 13143,
     "perKyoku": {
-      "agari": 19.6,
-      "houjuu": 11.6,
-      "riichi": 24.3
+      "agari": 20.1,
+      "houjuu": 12.1,
+      "riichi": 25.5
     },
     "danger": {
       "genbutsu": 0,
       "honor3seen": 0.5,
-      "honor2seen": 2.2,
-      "honor1seen": 4.27,
+      "honor2seen": 2.31,
+      "honor1seen": 3.83,
       "honor0seen": 6,
-      "suji19": 1.11,
-      "suji28": 2.99,
-      "suji37": 8.28,
-      "suji456": 3.12,
-      "halfSuji456": 5.93,
-      "nosuji19": 4.46,
-      "nosuji28": 6.91,
-      "nosuji37": 11.13,
-      "nosuji456": 10.84
+      "suji19": 0.91,
+      "suji28": 2.82,
+      "suji37": 8.63,
+      "suji456": 4.08,
+      "halfSuji456": 6.9,
+      "nosuji19": 4.39,
+      "nosuji28": 7.55,
+      "nosuji37": 12.36,
+      "nosuji456": 11.05
     },
     "wallFactor": {
-      "ワンチャンス": 0.877,
-      "片側ノーチャンス": 0.79,
-      "ノーチャンス": 0.367
+      "ワンチャンス": 0.88,
+      "片側ノーチャンス": 0.747,
+      "ノーチャンス": 0.377
     },
     "tenpai": [
       [
         0,
-        0.2,
-        0.8,
-        1.6,
-        2.9,
-        4.8
+        0.1,
+        0.5,
+        0.9,
+        2.4,
+        6.2
       ],
       [
-        7.2,
-        24.8,
-        46,
-        58.8,
-        61.6,
-        61.6
+        8.5,
+        27,
+        46.8,
+        61.2,
+        70.1,
+        74.9
       ],
       [
-        34.7,
-        57.6,
-        73.7,
-        79.7,
-        79.7,
-        79.7
+        46.2,
+        66,
+        78.8,
+        85.4,
+        86,
+        86
       ],
       [
-        89.8,
-        89.8,
-        92.8,
-        92.8,
-        92.8,
-        92.8
+        95.8,
+        95.8,
+        95.8,
+        95.8,
+        95.8,
+        95.8
       ]
     ],
     "riichiWin": {
       "good": [
-        73.4,
-        64.2,
-        54.4,
-        48.1,
-        42.1,
-        36.1
+        75.9,
+        65.8,
+        56.3,
+        50.8,
+        44.8,
+        38.8
       ],
       "bad": [
-        53.1,
-        43.1,
-        37.7,
-        32.1,
-        21.7,
-        15.7
+        52.8,
+        44.8,
+        40.6,
+        34.9,
+        25.6,
+        19.6
       ]
     },
     "openValue": {
-      "0": 5963,
-      "1": 3477,
-      "2": 3334,
-      "3": 3274
+      "1": 3471,
+      "2": 3467,
+      "3": 3788
     }
   },
   "kansai3": {
@@ -12700,212 +12851,212 @@ __m["src/data/waitShapes.js"] = (function () {
 //   node tools/make-wait-shapes.mjs
 const WAIT_SHAPES = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 200000,
   "seedTo": 201199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "shapePrior": {
    "riichi": {
-    "ryanmen": 0.3018,
-    "kanchan": 0.3019,
-    "penchan": 0.09,
-    "shanpon": 0.1235,
-    "tanki": 0.1522,
-    "multi": 0.0306
+    "ryanmen": 0.2988,
+    "kanchan": 0.3066,
+    "penchan": 0.0913,
+    "shanpon": 0.1205,
+    "tanki": 0.1528,
+    "multi": 0.03
    },
    "open": {
-    "ryanmen": 0.435,
-    "kanchan": 0.2461,
-    "penchan": 0.0549,
-    "shanpon": 0.1578,
-    "tanki": 0.0633,
-    "multi": 0.0429
+    "ryanmen": 0.4365,
+    "kanchan": 0.2506,
+    "penchan": 0.0567,
+    "shanpon": 0.1586,
+    "tanki": 0.0571,
+    "multi": 0.0404
    },
    "dama": {
-    "ryanmen": 0.2037,
-    "kanchan": 0.3081,
-    "penchan": 0.0567,
-    "shanpon": 0.1398,
-    "tanki": 0.2557,
-    "multi": 0.0361
+    "ryanmen": 0.2018,
+    "kanchan": 0.2789,
+    "penchan": 0.0593,
+    "shanpon": 0.1399,
+    "tanki": 0.2925,
+    "multi": 0.0277
    }
   },
   "posPrior": {
    "riichi": {
     "ryanmen": {
-     "2": 0.1429,
-     "3": 0.1544,
-     "4": 0.1932,
-     "5": 0.186,
-     "6": 0.1781,
-     "7": 0.1454
+     "2": 0.1411,
+     "3": 0.1519,
+     "4": 0.1948,
+     "5": 0.1911,
+     "6": 0.1804,
+     "7": 0.1407
     },
     "kanchan": {
-     "1": 0.1299,
-     "2": 0.1679,
-     "3": 0.1394,
-     "4": 0.1247,
-     "5": 0.1411,
-     "6": 0.1664,
-     "7": 0.1307
+     "1": 0.1317,
+     "2": 0.1627,
+     "3": 0.137,
+     "4": 0.1276,
+     "5": 0.1405,
+     "6": 0.1704,
+     "7": 0.1302
     },
     "penchan": {
-     "1": 0.5153,
-     "8": 0.4847
+     "1": 0.5166,
+     "8": 0.4834
     },
     "shanpon": {
-     "0": 0.1478,
-     "1": 0.0829,
+     "0": 0.1511,
+     "1": 0.0796,
      "2": 0.0897,
-     "3": 0.1076,
-     "4": 0.1036,
-     "5": 0.105,
-     "6": 0.0984,
-     "7": 0.0989,
-     "8": 0.0845,
-     "9": 0.0817
+     "3": 0.1064,
+     "4": 0.104,
+     "5": 0.1039,
+     "6": 0.0992,
+     "7": 0.1016,
+     "8": 0.0815,
+     "9": 0.0829
     },
     "tanki": {
-     "0": 0.2653,
+     "0": 0.2618,
      "1": 0.0163,
-     "2": 0.0341,
-     "3": 0.1696,
-     "4": 0.1129,
-     "5": 0.0999,
-     "6": 0.0943,
-     "7": 0.1466,
-     "8": 0.0453,
-     "9": 0.0158
+     "2": 0.0345,
+     "3": 0.1565,
+     "4": 0.1182,
+     "5": 0.1071,
+     "6": 0.0919,
+     "7": 0.1545,
+     "8": 0.0461,
+     "9": 0.013
     },
     "multi": {
-     "2": 0.3263,
-     "3": 0.3558,
-     "4": 0.3179
+     "2": 0.3032,
+     "3": 0.3872,
+     "4": 0.3096
     }
    },
    "open": {
     "ryanmen": {
-     "2": 0.1598,
-     "3": 0.1682,
-     "4": 0.177,
-     "5": 0.1797,
-     "6": 0.1699,
-     "7": 0.1454
+     "2": 0.1571,
+     "3": 0.1664,
+     "4": 0.1767,
+     "5": 0.1789,
+     "6": 0.1673,
+     "7": 0.1536
     },
     "kanchan": {
-     "1": 0.0868,
-     "2": 0.1589,
-     "3": 0.1613,
-     "4": 0.1698,
-     "5": 0.1556,
-     "6": 0.1815,
-     "7": 0.0861
+     "1": 0.0862,
+     "2": 0.1582,
+     "3": 0.1551,
+     "4": 0.1682,
+     "5": 0.1544,
+     "6": 0.1881,
+     "7": 0.0898
     },
     "penchan": {
-     "1": 0.4722,
-     "8": 0.5278
+     "1": 0.4689,
+     "8": 0.5311
     },
     "shanpon": {
-     "0": 0.2652,
-     "1": 0.0281,
-     "2": 0.0705,
-     "3": 0.1096,
-     "4": 0.1099,
-     "5": 0.1016,
-     "6": 0.1064,
-     "7": 0.107,
-     "8": 0.0692,
-     "9": 0.0325
+     "0": 0.2678,
+     "1": 0.0303,
+     "2": 0.072,
+     "3": 0.1092,
+     "4": 0.1123,
+     "5": 0.0963,
+     "6": 0.1034,
+     "7": 0.1063,
+     "8": 0.0709,
+     "9": 0.0314
     },
     "tanki": {
-     "0": 0.2409,
-     "1": 0.02,
-     "2": 0.0618,
-     "3": 0.1409,
-     "4": 0.1089,
-     "5": 0.0957,
-     "6": 0.104,
-     "7": 0.1484,
-     "8": 0.0472,
-     "9": 0.0322
+     "0": 0.2147,
+     "1": 0.0212,
+     "2": 0.0609,
+     "3": 0.1482,
+     "4": 0.1055,
+     "5": 0.1002,
+     "6": 0.1182,
+     "7": 0.1428,
+     "8": 0.0518,
+     "9": 0.0366
     },
     "multi": {
-     "2": 0.3424,
-     "3": 0.352,
-     "4": 0.3056
+     "2": 0.3543,
+     "3": 0.2953,
+     "4": 0.3504
     }
    },
    "dama": {
     "ryanmen": {
-     "2": 0.2161,
-     "3": 0.1671,
-     "4": 0.2201,
-     "5": 0.1347,
-     "6": 0.1486,
-     "7": 0.1135
+     "2": 0.1665,
+     "3": 0.1647,
+     "4": 0.1738,
+     "5": 0.1692,
+     "6": 0.1674,
+     "7": 0.1583
     },
     "kanchan": {
-     "1": 0.0921,
-     "2": 0.1749,
-     "3": 0.2151,
-     "4": 0.1381,
-     "5": 0.1609,
-     "6": 0.1399,
-     "7": 0.079
+     "1": 0.0785,
+     "2": 0.1915,
+     "3": 0.1934,
+     "4": 0.1586,
+     "5": 0.1415,
+     "6": 0.1264,
+     "7": 0.11
     },
     "penchan": {
-     "1": 0.6663,
-     "8": 0.3337
+     "1": 0.5509,
+     "8": 0.4491
     },
     "shanpon": {
-     "0": 0.1865,
-     "1": 0.0716,
-     "2": 0.0519,
-     "3": 0.1058,
-     "4": 0.0971,
-     "5": 0.1163,
-     "6": 0.1019,
-     "7": 0.1341,
-     "8": 0.0582,
-     "9": 0.0764
+     "0": 0.1662,
+     "1": 0.0319,
+     "2": 0.0711,
+     "3": 0.1271,
+     "4": 0.0997,
+     "5": 0.0978,
+     "6": 0.1147,
+     "7": 0.1232,
+     "8": 0.0965,
+     "9": 0.0717
     },
     "tanki": {
-     "0": 0.2421,
-     "1": 0.0319,
-     "2": 0.0382,
-     "3": 0.0825,
-     "4": 0.113,
-     "5": 0.1188,
-     "6": 0.1494,
-     "7": 0.1504,
-     "8": 0.064,
-     "9": 0.0097
+     "0": 0.1336,
+     "1": 0.0329,
+     "2": 0.0723,
+     "3": 0.1386,
+     "4": 0.1324,
+     "5": 0.1079,
+     "6": 0.1273,
+     "7": 0.1768,
+     "8": 0.0635,
+     "9": 0.0147
     },
     "multi": {
-     "2": 0.2951,
-     "3": 0.3983,
-     "4": 0.3066
+     "2": 0.3188,
+     "3": 0.2838,
+     "4": 0.3974
     }
    }
   },
   "ronGivenDealt": {
-   "riichi": 0.9203,
-   "open": 0.4188,
-   "dama": 0.5161
+   "riichi": 0.9327,
+   "open": 0.4214,
+   "dama": 0.5322
   },
   "ronGivenDealtByTile": {
    "riichi": {
-    "honor": 0.9703,
-    "num": 0.9135
+    "honor": 0.9594,
+    "num": 0.9297
    },
    "open": {
-    "honor": 0.7683,
-    "num": 0.3958
+    "honor": 0.7844,
+    "num": 0.397
    },
    "dama": {
-    "honor": 0.6665,
-    "num": 0.4845
+    "honor": 0.6881,
+    "num": 0.5063
    }
   }
  },
@@ -13138,11 +13289,11 @@ __m["src/data/wallReadTable.js"] = (function () {
 // 予測と実測の突き合わせ: docs/measurements/2026-09-28-wall-read-calib.md
 const WALL_READ = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 79000000,
   "seedTo": 79001199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "axes": {
    "rel": [
     "genbutsu",
@@ -13166,24 +13317,24 @@ const WALL_READ = {
   "table": [
    [
     [
-     0.03,
-     0.102,
-     0.211
+     0.031,
+     0.103,
+     0.201
     ],
     [
-     0.161,
-     0.3,
-     0.445
+     0.164,
+     0.304,
+     0.449
     ],
     [
      0.294,
      0.471,
-     0.661
+     0.658
     ],
     [
-     0.491,
-     0.727,
-     0.908
+     0.499,
+     0.729,
+     0.904
     ]
    ],
    [
@@ -13193,19 +13344,19 @@ const WALL_READ = {
      1
     ],
     [
-     0.6,
-     0.725,
-     0.83
+     0.601,
+     0.723,
+     0.837
     ],
     [
-     0.685,
-     0.909,
-     1.018
+     0.686,
+     0.91,
+     1.021
     ],
     [
-     0.487,
+     0.49,
      0.801,
-     1.01
+     1.003
     ]
    ],
    [
@@ -13215,19 +13366,19 @@ const WALL_READ = {
      1
     ],
     [
-     0.462,
-     0.664,
-     0.856
+     0.467,
+     0.667,
+     0.864
     ],
     [
-     0.501,
-     0.779,
-     0.97
+     0.498,
+     0.774,
+     0.974
     ],
     [
-     0.791,
-     1.152,
-     1.264
+     0.792,
+     1.15,
+     1.262
     ]
    ],
    [
@@ -13237,40 +13388,40 @@ const WALL_READ = {
      1
     ],
     [
-     0.881,
-     0.836,
-     0.917
+     0.873,
+     0.835,
+     0.915
     ],
     [
-     1.472,
-     1.432,
-     1.301
+     1.468,
+     1.427,
+     1.311
     ],
     [
-     1.508,
-     1.502,
-     1.386
+     1.506,
+     1.503,
+     1.391
     ]
    ],
    [
     [
      0.886,
-     0.788,
-     0.81
+     0.79,
+     0.811
     ],
     [
      1.034,
-     1.087,
-     1.094
+     1.084,
+     1.103
     ],
     [
-     1.127,
-     1.272,
-     1.244
+     1.128,
+     1.275,
+     1.26
     ],
     [
      1.134,
-     1.342,
+     1.338,
      1.324
     ]
    ]
@@ -13471,16 +13622,16 @@ __m["src/data/riichiReadTable.js"] = (function () {
 // 集計: docs/measurements/2026-09-30-riichiTileRead-survey.md
 const RIICHI_READ = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 132000000,
   "seedTo": 132001199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "table": {
-   "matagiUra": 1.325,
+   "matagiUra": 1.32,
    "matagi": 1,
-   "ura": 0.764,
-   "earlyOutside": 0.396,
+   "ura": 0.715,
+   "earlyOutside": 0.447,
    "honor": 1,
    "unrelated": 1
   }
@@ -13519,16 +13670,16 @@ __m["src/data/outLikelyTable.js"] = (function () {
 // 集計: docs/measurements/2026-09-30-outLikelyWait-survey.md
 const OUT_LIKELY = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 138000000,
   "seedTo": 138001199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "table": {
-   "honor0": 1.919,
-   "honor1": 3.252,
-   "kabeOut": 2.365,
-   "sujiRiichi": 1.77
+   "honor0": 2.048,
+   "honor1": 3.387,
+   "kabeOut": 2.321,
+   "sujiRiichi": 1.809
   }
  },
  "kansai3": {
@@ -13561,11 +13712,11 @@ __m["src/data/learnedDangerTable.js"] = (function () {
 // 使うのは src/core/waitDanger.js(係数 learnedDanger)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const LEARNED_DANGER = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 166000000,
   "seedTo": 166001199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "features": [
    "bias",
    "honor",
@@ -13589,28 +13740,28 @@ const LEARNED_DANGER = {
    "logitW"
   ],
   "weights": [
-   -1.092713,
-   0.019324,
-   0.008341,
-   0.067427,
-   0.027738,
-   -0.078994,
-   0.507027,
-   -0.400908,
-   -1.072227,
-   -1.037427,
-   0.403906,
-   -1.399402,
-   0.306688,
-   0.285162,
-   0.171349,
-   -0.238959,
-   -1.093437,
-   -0.484325,
-   -0.061793,
-   0.1476
+   -1.371906,
+   -0.026042,
+   -0.061372,
+   0.045779,
+   -0.052519,
+   -0.166815,
+   0.598157,
+   -0.453759,
+   -1.024132,
+   -0.972265,
+   0.432457,
+   -1.921182,
+   0.549277,
+   0.221252,
+   0.005962,
+   -0.046346,
+   -1.102515,
+   -0.468296,
+   -0.031921,
+   0.201394
   ],
-  "logitShape": 0.7329
+  "logitShape": 0.700184
  }
 };
 
@@ -13629,7 +13780,7 @@ __m["src/data/learnedDangerV2Table.js"] = (function () {
 // 使うのは src/core/waitDanger.js(係数 learnedDangerV2)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const LEARNED_DANGER_V2 = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 292000000,
   "seedTo": 292001199,
@@ -13657,28 +13808,28 @@ const LEARNED_DANGER_V2 = {
    "logitW"
   ],
   "weights": [
-   -0.915397,
-   0.057368,
-   0.041717,
-   0.078907,
-   0.055836,
-   -0.099859,
-   0.390538,
-   -0.407864,
-   -0.877898,
-   -1.04069,
-   0.343828,
-   -1.17799,
-   0.262593,
+   -1.27161,
+   0.030301,
+   0.02186,
+   0.091356,
+   0.079299,
+   -0.094527,
+   0.478822,
+   -0.412808,
+   -0.890256,
+   -0.997849,
+   0.517171,
+   -1.646598,
+   0.374988,
    0,
    0,
    0,
    0,
-   -0.458581,
-   -0.120719,
-   0.124061
+   -0.425984,
+   -0.012752,
+   0.1656
   ],
-  "logitShape": 0.753646
+  "logitShape": 0.710314
  }
 };
 
@@ -13697,7 +13848,7 @@ __m["src/data/openRonYakuTable.js"] = (function () {
 // 使うのは src/core/waitDanger.js(係数 openRonByYakuSignal)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const OPEN_RON_YAKU = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 335000000,
   "seedTo": 335001199,
@@ -13705,8 +13856,8 @@ const OPEN_RON_YAKU = {
   "cells": {
    "yakuhai": {
     "num": {
-     "dealt": 1926,
-     "rate": 0.9237
+     "dealt": 1992,
+     "rate": 0.9257
     },
     "honor": {
      "dealt": 97,
@@ -13715,32 +13866,32 @@ const OPEN_RON_YAKU = {
    },
    "tanyao": {
     "num": {
-     "dealt": 3878,
-     "rate": 0.3138
+     "dealt": 3923,
+     "rate": 0.3217
     },
     "honor": {
-     "dealt": 235,
-     "rate": 0.7191
+     "dealt": 240,
+     "rate": 0.775
     }
    },
    "flush": {
     "num": {
-     "dealt": 1582,
-     "rate": 0.1081
+     "dealt": 1527,
+     "rate": 0.1179
     },
     "honor": {
-     "dealt": 157,
-     "rate": 0.7834
+     "dealt": 139,
+     "rate": 0.7626
     }
    },
    "none": {
     "num": {
-     "dealt": 601,
-     "rate": 0.0715
+     "dealt": 476,
+     "rate": 0.0546
     },
     "honor": {
-     "dealt": 71,
-     "rate": 0.7746
+     "dealt": 62,
+     "rate": 0.7258
     }
    }
   }
@@ -13780,11 +13931,11 @@ __m["src/data/lateHonorTable.js"] = (function () {
 // 使うのは src/core/waitDanger.js(係数 lateLiveHonorDanger)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const LATE_HONOR = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 172000000,
   "seedTo": 172001199,
-  "measuredAt": "2026-10-01",
+  "measuredAt": "2026-10-03",
   "bands": [
    "t1_6",
    "t7_12",
@@ -13792,14 +13943,14 @@ const LATE_HONOR = {
   ],
   "factor": {
    "0": {
-    "t1_6": 1.681,
-    "t7_12": 2.017,
-    "t13": 2.821
+    "t1_6": 1.451,
+    "t7_12": 1.827,
+    "t13": 2.428
    },
    "1": {
     "t1_6": 1,
     "t7_12": 1,
-    "t13": 1.844
+    "t13": 2.124
    },
    "2": {
     "t1_6": 1,
@@ -13808,26 +13959,26 @@ const LATE_HONOR = {
    }
   },
   "terminal": {
-   "generation": 4,
+   "generation": 5,
    "hanchan": 1200,
    "seedFrom": 188000000,
    "seedTo": 188001199,
-   "measuredAt": "2026-10-02",
+   "measuredAt": "2026-10-03",
    "factor": {
     "0": {
      "t1_6": 1,
-     "t7_12": 1.437,
-     "t13": 1.896
+     "t7_12": 1.417,
+     "t13": 1.914
     },
     "1": {
-     "t1_6": 0.682,
-     "t7_12": 0.806,
+     "t1_6": 1,
+     "t7_12": 0.858,
      "t13": 1
     },
     "2": {
      "t1_6": 1,
-     "t7_12": 0.62,
-     "t13": 0.488
+     "t7_12": 0.604,
+     "t13": 0.645
     }
    }
   }
@@ -13917,11 +14068,11 @@ __m["src/data/callTenpaiSignalTable.js"] = (function () {
 // 使うのは src/core/ai.js の activeThreats(係数 callTenpaiSignal)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const CALL_TENPAI_SIGNAL = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 275000000,
   "seedTo": 275001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "cols": [
    "定数",
    "logit(既存の基準 estBase)",
@@ -13971,52 +14122,52 @@ const CALL_TENPAI_SIGNAL = {
    "山の残り/70"
   ],
   "weights": [
-   -0.670498,
-   1.473719,
-   0.92635,
-   0.177331,
-   -1.110148,
-   0.006467,
-   -0.391206,
-   0.139642,
-   -0.391206,
-   -0.801423,
-   0.003869,
-   -0.146506,
-   -0.034449,
-   0.277431,
-   0.054754,
-   0.242927,
-   0.494356,
+   0.179175,
+   1.073163,
+   -0.020129,
+   0.199533,
+   -0.185043,
+   0.005639,
+   -0.020595,
+   0.409615,
+   -0.020595,
+   -1.152526,
+   -0.257731,
+   -0.174405,
+   -0.093067,
+   0.565661,
+   0.044399,
+   0.180737,
+   0.398804,
    0,
-   -0.452817,
-   -0.9469,
-   -0.154657,
-   -0.206529,
-   -0.238712,
-   -0.175539,
-   -0.162574,
-   0.284278,
-   1.077686,
-   -0.241251,
-   0.484065,
-   1.045909,
-   0.145973,
-   0.171408,
-   0.263147,
-   0.402933,
-   0.508948,
-   0.046689,
-   -0.969954,
-   0.085664,
-   0.023107,
-   0.018075,
-   -0.04014,
-   0.037226,
-   -0.530852,
-   0.52601,
-   -0.547259,
-   1.258468
+   -0.519344,
+   -0.823107,
+   -0.092366,
+   -0.149606,
+   -0.152424,
+   -0.129055,
+   -0.143081,
+   0.288615,
+   1.023538,
+   -0.098925,
+   0.328862,
+   1.088969,
+   0.042592,
+   0.08734,
+   0.260863,
+   0.323048,
+   0.391688,
+   0.120167,
+   -1.080268,
+   0.094827,
+   -0.037443,
+   0.04158,
+   0.046625,
+   0.065715,
+   -0.475064,
+   0.753049,
+   -0.423824,
+   0.897285
   ]
  }
 };
@@ -14036,57 +14187,57 @@ __m["src/data/callableOutLikelyTable.js"] = (function () {
 // 使うのは src/core/ai.js の callableCount(係数 callableOutLikely)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const CALLABLE_OUT_LIKELY = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 269000000,
   "seedTo": 269001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "factor": {
    "tenpai": {
     "pon": {
-     "genbutsu": 3.195,
-     "honor0": 1.75,
-     "honor1": 2.877,
+     "genbutsu": 2.52,
+     "honor0": 1.628,
+     "honor1": 2.778,
      "honor2": 1,
      "honor3": 1,
-     "kabeOut": 2.12,
-     "suji": 0.824,
-     "halfSuji": 0.794,
+     "kabeOut": 1,
+     "suji": 1,
+     "halfSuji": 0.715,
      "noSuji": 1
     },
     "chi": {
-     "genbutsu": 1.891,
+     "genbutsu": 1.975,
      "honor0": 1,
      "honor1": 1,
      "honor2": 1,
      "honor3": 1,
      "kabeOut": 1,
      "suji": 1,
-     "halfSuji": 0.859,
+     "halfSuji": 1,
      "noSuji": 1
     }
    },
    "noTenpai": {
     "pon": {
      "genbutsu": 1,
-     "honor0": 2.099,
-     "honor1": 2.598,
+     "honor0": 2.163,
+     "honor1": 2.332,
      "honor2": 1,
      "honor3": 1,
      "kabeOut": 1,
      "suji": 1,
-     "halfSuji": 0.74,
+     "halfSuji": 0.713,
      "noSuji": 1
     },
     "chi": {
-     "genbutsu": 2.426,
+     "genbutsu": 2.281,
      "honor0": 1,
      "honor1": 1,
      "honor2": 1,
      "honor3": 1,
      "kabeOut": 1,
      "suji": 1,
-     "halfSuji": 0.828,
+     "halfSuji": 1,
      "noSuji": 1
     }
    }
@@ -14109,19 +14260,19 @@ __m["src/data/doraDangerTable.js"] = (function () {
 // 使うのは src/core/waitDanger.js(係数 doraDanger)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const DORA_DANGER = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 270000000,
   "seedTo": 270001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "factor": {
    "t1_9": {
-    "dora": 1.394,
-    "honorDora": 1
+    "dora": 1.448,
+    "honorDora": 1.436
    },
    "t10": {
-    "dora": 1.59,
-    "honorDora": 1.534
+    "dora": 1.535,
+    "honorDora": 1.816
    }
   }
  }
@@ -14142,23 +14293,23 @@ __m["src/data/hanEstimateCalibTable.js"] = (function () {
 // 使うのは src/core/evaluate.js の handHanEstimate(係数 hanEstimateFix)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const HAN_ESTIMATE_CALIB = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 287000000,
   "seedTo": 287001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "cells": {
    "closedPinfu": {
-    "n": 4533,
-    "fix": 0.971
+    "n": 4865,
+    "fix": 0.941
    },
    "closedOther": {
-    "n": 1511,
-    "fix": 0.676
+    "n": 1594,
+    "fix": 0.59
    },
    "open": {
-    "n": 5053,
-    "fix": 0.122
+    "n": 5174,
+    "fix": 0.12
    }
   }
  }
@@ -14179,125 +14330,125 @@ __m["src/data/riichiValueTable.js"] = (function () {
 // 使うのは src/core/ai.js の activeThreats(係数 riichiValueCalib)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const RIICHI_VALUE = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 294000000,
   "seedTo": 294001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "all": {
    "child.ron": {
-    "n": 2095,
-    "mean": 5900
+    "n": 2357,
+    "mean": 5817
    },
    "child.tsumo": {
-    "n": 2073,
-    "mean": 7267
+    "n": 2114,
+    "mean": 7353
    },
    "dealer.ron": {
-    "n": 712,
-    "mean": 8507
+    "n": 840,
+    "mean": 8325
    },
    "dealer.tsumo": {
-    "n": 830,
-    "mean": 11037
+    "n": 848,
+    "mean": 11136
    }
   },
   "cells": {
    "child.ron.1.t1_6": {
-    "n": 579,
-    "mean": 4990
+    "n": 605,
+    "mean": 4910
    },
    "child.ron.1.t7_11": {
-    "n": 1045,
-    "mean": 5789
+    "n": 1179,
+    "mean": 5754
    },
    "child.ron.1.t12": {
-    "n": 269,
-    "mean": 6793
+    "n": 352,
+    "mean": 6427
    },
    "child.ron.2+.t1_6": {
-    "n": 55,
-    "mean": 7460
+    "n": 57,
+    "mean": 7523
    },
    "child.ron.2+.t7_11": {
-    "n": 110,
-    "mean": 7912
+    "n": 123,
+    "mean": 7710
    },
    "child.ron.2+.t12": {
-    "n": 37,
-    "mean": 8495
+    "n": 41,
+    "mean": 7744
    },
    "child.tsumo.1.t1_6": {
-    "n": 667,
-    "mean": 6660
+    "n": 689,
+    "mean": 6808
    },
    "child.tsumo.1.t7_11": {
-    "n": 978,
-    "mean": 7255
+    "n": 992,
+    "mean": 7312
    },
    "child.tsumo.1.t12": {
-    "n": 222,
-    "mean": 7605
+    "n": 237,
+    "mean": 7843
    },
    "child.tsumo.2+.t1_6": {
-    "n": 70,
-    "mean": 8803
+    "n": 63,
+    "mean": 8797
    },
    "child.tsumo.2+.t7_11": {
-    "n": 106,
-    "mean": 8516
+    "n": 99,
+    "mean": 8493
    },
    "child.tsumo.2+.t12": {
-    "n": 30,
-    "mean": 10640
+    "n": 34,
+    "mean": 10185
    },
    "dealer.ron.1.t1_6": {
-    "n": 181,
-    "mean": 7314
+    "n": 190,
+    "mean": 7243
    },
    "dealer.ron.1.t7_11": {
-    "n": 370,
-    "mean": 8735
+    "n": 412,
+    "mean": 8404
    },
    "dealer.ron.1.t12": {
-    "n": 99,
-    "mean": 8406
+    "n": 168,
+    "mean": 8595
    },
    "dealer.ron.2+.t1_6": {
-    "n": 14,
-    "mean": 9571
+    "n": 13,
+    "mean": 10200
    },
    "dealer.ron.2+.t7_11": {
-    "n": 33,
-    "mean": 11364
+    "n": 34,
+    "mean": 10959
    },
    "dealer.ron.2+.t12": {
-    "n": 15,
-    "mean": 10660
+    "n": 23,
+    "mean": 8935
    },
    "dealer.tsumo.1.t1_6": {
-    "n": 256,
-    "mean": 10396
+    "n": 274,
+    "mean": 10118
    },
    "dealer.tsumo.1.t7_11": {
-    "n": 380,
-    "mean": 10576
+    "n": 388,
+    "mean": 10918
    },
    "dealer.tsumo.1.t12": {
-    "n": 113,
-    "mean": 12273
+    "n": 112,
+    "mean": 12788
    },
    "dealer.tsumo.2+.t1_6": {
     "n": 20,
-    "mean": 10875
+    "mean": 11580
    },
    "dealer.tsumo.2+.t7_11": {
-    "n": 52,
-    "mean": 14550
+    "n": 46,
+    "mean": 14374
    },
    "dealer.tsumo.2+.t12": {
-    "n": 9,
-    "mean": 13333
+    "n": 8,
+    "mean": 13725
    }
   }
  }
@@ -14318,115 +14469,111 @@ __m["src/data/winRateStateTable.js"] = (function () {
 // 使うのは係数 winRateByState(evaluate.js の聴牌の和了率)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const WIN_RATE_STATE = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 322000000,
   "seedTo": 322001199,
-  "measuredAt": "2026-10-02",
+  "measuredAt": "2026-10-03",
   "cells": {
    "chase|bad|t10_12|w0_4|noyaku": {
-    "n": 365,
-    "ratePct": 33.7
+    "n": 405,
+    "ratePct": 32.84
    },
    "chase|bad|t10_12|w0_4|yaku": {
-    "n": 330,
-    "ratePct": 30
+    "n": 335,
+    "ratePct": 27.46
    },
    "chase|bad|t13_15|w0_4|noyaku": {
-    "n": 192,
-    "ratePct": 25.52
+    "n": 252,
+    "ratePct": 26.19
    },
    "chase|bad|t13_15|w0_4|yaku": {
-    "n": 224,
-    "ratePct": 22.77
+    "n": 236,
+    "ratePct": 25
    },
    "chase|bad|t16|w0_4|noyaku": {
-    "n": 34,
-    "ratePct": 20.59
+    "n": 59,
+    "ratePct": 8.47
    },
    "chase|bad|t16|w0_4|yaku": {
-    "n": 36,
-    "ratePct": 13.89
+    "n": 58,
+    "ratePct": 12.07
    },
    "chase|bad|t1_3|w0_4|noyaku": {
-    "n": 3,
+    "n": 4,
     "ratePct": 0
    },
    "chase|bad|t1_3|w0_4|yaku": {
-    "n": 3,
-    "ratePct": 33.33
+    "n": 4,
+    "ratePct": 25
    },
    "chase|bad|t4_6|w0_4|noyaku": {
-    "n": 76,
-    "ratePct": 42.11
+    "n": 78,
+    "ratePct": 35.9
    },
    "chase|bad|t4_6|w0_4|yaku": {
-    "n": 43,
-    "ratePct": 37.21
+    "n": 48,
+    "ratePct": 35.42
    },
    "chase|bad|t7_9|w0_4|noyaku": {
-    "n": 299,
-    "ratePct": 30.43
+    "n": 322,
+    "ratePct": 31.68
    },
    "chase|bad|t7_9|w0_4|yaku": {
-    "n": 211,
-    "ratePct": 35.55
+    "n": 216,
+    "ratePct": 32.87
    },
    "chase|good|t10_12|w5_8|noyaku": {
-    "n": 147,
-    "ratePct": 49.66
+    "n": 151,
+    "ratePct": 47.68
    },
    "chase|good|t10_12|w5_8|yaku": {
-    "n": 247,
-    "ratePct": 39.68
+    "n": 269,
+    "ratePct": 37.92
    },
    "chase|good|t10_12|w9|noyaku": {
-    "n": 3,
-    "ratePct": 66.67
+    "n": 2,
+    "ratePct": 50
    },
    "chase|good|t10_12|w9|yaku": {
-    "n": 8,
-    "ratePct": 75
+    "n": 11,
+    "ratePct": 54.55
    },
    "chase|good|t13_15|w5_8|noyaku": {
-    "n": 63,
-    "ratePct": 28.57
+    "n": 84,
+    "ratePct": 33.33
    },
    "chase|good|t13_15|w5_8|yaku": {
-    "n": 142,
-    "ratePct": 29.58
+    "n": 147,
+    "ratePct": 31.97
    },
    "chase|good|t13_15|w9|yaku": {
-    "n": 3,
+    "n": 2,
     "ratePct": 100
    },
    "chase|good|t16|w5_8|noyaku": {
-    "n": 20,
-    "ratePct": 10
+    "n": 25,
+    "ratePct": 8
    },
    "chase|good|t16|w5_8|yaku": {
-    "n": 43,
-    "ratePct": 23.26
+    "n": 58,
+    "ratePct": 18.97
    },
    "chase|good|t16|w9|noyaku": {
-    "n": 1,
-    "ratePct": 0
-   },
-   "chase|good|t16|w9|yaku": {
-    "n": 2,
-    "ratePct": 50
+    "n": 3,
+    "ratePct": 33.33
    },
    "chase|good|t1_3|w5_8|yaku": {
     "n": 3,
     "ratePct": 33.33
    },
    "chase|good|t4_6|w5_8|noyaku": {
-    "n": 29,
-    "ratePct": 41.38
+    "n": 23,
+    "ratePct": 30.43
    },
    "chase|good|t4_6|w5_8|yaku": {
-    "n": 49,
-    "ratePct": 51.02
+    "n": 54,
+    "ratePct": 50
    },
    "chase|good|t4_6|w9|noyaku": {
     "n": 1,
@@ -14437,328 +14584,324 @@ const WIN_RATE_STATE = {
     "ratePct": 25
    },
    "chase|good|t7_9|w5_8|noyaku": {
-    "n": 128,
-    "ratePct": 39.84
+    "n": 134,
+    "ratePct": 41.04
    },
    "chase|good|t7_9|w5_8|yaku": {
-    "n": 216,
-    "ratePct": 49.54
+    "n": 208,
+    "ratePct": 47.6
    },
    "chase|good|t7_9|w9|noyaku": {
-    "n": 6,
-    "ratePct": 16.67
+    "n": 5,
+    "ratePct": 40
    },
    "chase|good|t7_9|w9|yaku": {
-    "n": 5,
-    "ratePct": 80
+    "n": 7,
+    "ratePct": 71.43
    },
    "dama|bad|t10_12|w0_4|noyaku": {
-    "n": 61,
-    "ratePct": 19.67
+    "n": 65,
+    "ratePct": 16.92
    },
    "dama|bad|t10_12|w0_4|yaku": {
-    "n": 70,
-    "ratePct": 21.43
+    "n": 79,
+    "ratePct": 25.32
    },
    "dama|bad|t13_15|w0_4|noyaku": {
-    "n": 70,
-    "ratePct": 4.29
+    "n": 80,
+    "ratePct": 7.5
    },
    "dama|bad|t13_15|w0_4|yaku": {
-    "n": 80,
-    "ratePct": 13.75
+    "n": 93,
+    "ratePct": 13.98
    },
    "dama|bad|t16|w0_4|noyaku": {
-    "n": 70,
-    "ratePct": 2.86
+    "n": 111,
+    "ratePct": 3.6
    },
    "dama|bad|t16|w0_4|yaku": {
-    "n": 199,
-    "ratePct": 11.56
+    "n": 211,
+    "ratePct": 4.27
    },
    "dama|bad|t1_3|w0_4|noyaku": {
-    "n": 2,
-    "ratePct": 50
-   },
-   "dama|bad|t1_3|w0_4|yaku": {
-    "n": 2,
-    "ratePct": 50
-   },
-   "dama|bad|t4_6|w0_4|noyaku": {
-    "n": 13,
-    "ratePct": 30.77
-   },
-   "dama|bad|t4_6|w0_4|yaku": {
-    "n": 17,
-    "ratePct": 58.82
-   },
-   "dama|bad|t7_9|w0_4|noyaku": {
-    "n": 36,
-    "ratePct": 22.22
-   },
-   "dama|bad|t7_9|w0_4|yaku": {
-    "n": 51,
-    "ratePct": 37.25
-   },
-   "dama|good|t10_12|w5_8|noyaku": {
-    "n": 3,
-    "ratePct": 33.33
-   },
-   "dama|good|t10_12|w5_8|yaku": {
-    "n": 9,
-    "ratePct": 55.56
-   },
-   "dama|good|t13_15|w5_8|noyaku": {
-    "n": 2,
-    "ratePct": 0
-   },
-   "dama|good|t13_15|w5_8|yaku": {
-    "n": 4,
-    "ratePct": 0
-   },
-   "dama|good|t16|w5_8|noyaku": {
-    "n": 4,
-    "ratePct": 25
-   },
-   "dama|good|t16|w5_8|yaku": {
-    "n": 13,
-    "ratePct": 7.69
-   },
-   "dama|good|t16|w9|yaku": {
-    "n": 1,
-    "ratePct": 0
-   },
-   "dama|good|t1_3|w5_8|yaku": {
     "n": 1,
     "ratePct": 100
    },
-   "dama|good|t4_6|w5_8|noyaku": {
-    "n": 4,
+   "dama|bad|t1_3|w0_4|yaku": {
+    "n": 1,
+    "ratePct": 100
+   },
+   "dama|bad|t4_6|w0_4|noyaku": {
+    "n": 12,
+    "ratePct": 33.33
+   },
+   "dama|bad|t4_6|w0_4|yaku": {
+    "n": 17,
+    "ratePct": 41.18
+   },
+   "dama|bad|t7_9|w0_4|noyaku": {
+    "n": 42,
+    "ratePct": 28.57
+   },
+   "dama|bad|t7_9|w0_4|yaku": {
+    "n": 53,
+    "ratePct": 28.3
+   },
+   "dama|good|t10_12|w5_8|noyaku": {
+    "n": 5,
+    "ratePct": 40
+   },
+   "dama|good|t10_12|w5_8|yaku": {
+    "n": 11,
+    "ratePct": 45.45
+   },
+   "dama|good|t13_15|w5_8|noyaku": {
+    "n": 1,
     "ratePct": 0
    },
+   "dama|good|t13_15|w5_8|yaku": {
+    "n": 7,
+    "ratePct": 42.86
+   },
+   "dama|good|t16|w5_8|noyaku": {
+    "n": 2,
+    "ratePct": 0
+   },
+   "dama|good|t16|w5_8|yaku": {
+    "n": 10,
+    "ratePct": 0
+   },
+   "dama|good|t16|w9|yaku": {
+    "n": 1,
+    "ratePct": 100
+   },
+   "dama|good|t1_3|w5_8|yaku": {
+    "n": 2,
+    "ratePct": 100
+   },
+   "dama|good|t4_6|w5_8|noyaku": {
+    "n": 3,
+    "ratePct": 33.33
+   },
    "dama|good|t4_6|w5_8|yaku": {
-    "n": 17,
-    "ratePct": 76.47
+    "n": 15,
+    "ratePct": 60
    },
    "dama|good|t4_6|w9|yaku": {
     "n": 3,
     "ratePct": 66.67
    },
    "dama|good|t7_9|w5_8|noyaku": {
-    "n": 7,
-    "ratePct": 28.57
+    "n": 10,
+    "ratePct": 30
    },
    "dama|good|t7_9|w5_8|yaku": {
-    "n": 17,
-    "ratePct": 64.71
-   },
-   "dama|good|t7_9|w9|noyaku": {
-    "n": 1,
-    "ratePct": 0
+    "n": 14,
+    "ratePct": 71.43
    },
    "dama|good|t7_9|w9|yaku": {
-    "n": 2,
+    "n": 1,
     "ratePct": 100
    },
    "open|bad|t10_12|w0_4|noyaku": {
-    "n": 726,
-    "ratePct": 5.79
+    "n": 696,
+    "ratePct": 6.9
    },
    "open|bad|t10_12|w0_4|yaku": {
-    "n": 1363,
-    "ratePct": 39.25
+    "n": 1412,
+    "ratePct": 39.24
    },
    "open|bad|t13_15|w0_4|noyaku": {
-    "n": 484,
-    "ratePct": 2.89
+    "n": 535,
+    "ratePct": 4.49
    },
    "open|bad|t13_15|w0_4|yaku": {
-    "n": 604,
-    "ratePct": 32.78
+    "n": 700,
+    "ratePct": 31.14
    },
    "open|bad|t16|w0_4|noyaku": {
-    "n": 296,
-    "ratePct": 1.69
+    "n": 402,
+    "ratePct": 3.48
    },
    "open|bad|t16|w0_4|yaku": {
-    "n": 218,
-    "ratePct": 14.22
+    "n": 269,
+    "ratePct": 18.96
    },
    "open|bad|t1_3|w0_4|noyaku": {
-    "n": 59,
-    "ratePct": 8.47
+    "n": 56,
+    "ratePct": 10.71
    },
    "open|bad|t1_3|w0_4|yaku": {
-    "n": 134,
-    "ratePct": 65.67
+    "n": 138,
+    "ratePct": 65.94
    },
    "open|bad|t4_6|w0_4|noyaku": {
-    "n": 616,
-    "ratePct": 9.9
+    "n": 582,
+    "ratePct": 11.51
    },
    "open|bad|t4_6|w0_4|yaku": {
-    "n": 1188,
-    "ratePct": 55.64
+    "n": 1169,
+    "ratePct": 56.72
    },
    "open|bad|t7_9|w0_4|noyaku": {
-    "n": 1022,
-    "ratePct": 6.16
+    "n": 968,
+    "ratePct": 7.23
    },
    "open|bad|t7_9|w0_4|yaku": {
-    "n": 1993,
-    "ratePct": 44.76
+    "n": 1939,
+    "ratePct": 47.81
    },
    "open|good|t10_12|w5_8|noyaku": {
-    "n": 605,
-    "ratePct": 4.3
+    "n": 579,
+    "ratePct": 4.32
    },
    "open|good|t10_12|w5_8|yaku": {
-    "n": 1045,
-    "ratePct": 52.92
+    "n": 1069,
+    "ratePct": 53.04
    },
    "open|good|t10_12|w9|noyaku": {
-    "n": 20,
-    "ratePct": 0
+    "n": 15,
+    "ratePct": 6.67
    },
    "open|good|t10_12|w9|yaku": {
-    "n": 33,
-    "ratePct": 72.73
+    "n": 35,
+    "ratePct": 57.14
    },
    "open|good|t13_15|w5_8|noyaku": {
-    "n": 260,
-    "ratePct": 5.77
+    "n": 284,
+    "ratePct": 3.52
    },
    "open|good|t13_15|w5_8|yaku": {
-    "n": 328,
-    "ratePct": 51.83
+    "n": 373,
+    "ratePct": 49.33
    },
    "open|good|t13_15|w9|noyaku": {
-    "n": 5,
+    "n": 7,
     "ratePct": 0
    },
    "open|good|t13_15|w9|yaku": {
-    "n": 7,
-    "ratePct": 42.86
+    "n": 5,
+    "ratePct": 40
    },
    "open|good|t16|w5_8|noyaku": {
-    "n": 116,
-    "ratePct": 6.9
+    "n": 117,
+    "ratePct": 5.98
    },
    "open|good|t16|w5_8|yaku": {
-    "n": 97,
-    "ratePct": 37.11
+    "n": 101,
+    "ratePct": 37.62
    },
    "open|good|t16|w9|noyaku": {
-    "n": 2,
+    "n": 5,
     "ratePct": 0
    },
    "open|good|t16|w9|yaku": {
-    "n": 4,
-    "ratePct": 25
+    "n": 5,
+    "ratePct": 40
    },
    "open|good|t1_3|w5_8|noyaku": {
-    "n": 52,
-    "ratePct": 1.92
+    "n": 50,
+    "ratePct": 8
    },
    "open|good|t1_3|w5_8|yaku": {
-    "n": 76,
-    "ratePct": 77.63
+    "n": 69,
+    "ratePct": 76.81
    },
    "open|good|t1_3|w9|noyaku": {
     "n": 4,
-    "ratePct": 0
+    "ratePct": 25
    },
    "open|good|t1_3|w9|yaku": {
-    "n": 4,
-    "ratePct": 75
+    "n": 1,
+    "ratePct": 100
    },
    "open|good|t4_6|w5_8|noyaku": {
-    "n": 489,
-    "ratePct": 9.2
+    "n": 478,
+    "ratePct": 9.62
    },
    "open|good|t4_6|w5_8|yaku": {
-    "n": 756,
-    "ratePct": 75.13
+    "n": 732,
+    "ratePct": 73.77
    },
    "open|good|t4_6|w9|noyaku": {
-    "n": 25,
+    "n": 23,
     "ratePct": 0
    },
    "open|good|t4_6|w9|yaku": {
-    "n": 36,
-    "ratePct": 80.56
+    "n": 37,
+    "ratePct": 81.08
    },
    "open|good|t7_9|w5_8|noyaku": {
-    "n": 945,
-    "ratePct": 6.03
+    "n": 869,
+    "ratePct": 6.33
    },
    "open|good|t7_9|w5_8|yaku": {
-    "n": 1431,
-    "ratePct": 64.64
+    "n": 1458,
+    "ratePct": 65.57
    },
    "open|good|t7_9|w9|noyaku": {
     "n": 25,
-    "ratePct": 4
+    "ratePct": 8
    },
    "open|good|t7_9|w9|yaku": {
-    "n": 47,
-    "ratePct": 65.96
+    "n": 51,
+    "ratePct": 62.75
    },
    "riichi|bad|t10_12|w0_4|noyaku": {
-    "n": 860,
-    "ratePct": 31.05
+    "n": 895,
+    "ratePct": 36.2
    },
    "riichi|bad|t10_12|w0_4|yaku": {
-    "n": 653,
-    "ratePct": 35.53
+    "n": 672,
+    "ratePct": 35.42
    },
    "riichi|bad|t13_15|w0_4|noyaku": {
-    "n": 361,
-    "ratePct": 20.78
+    "n": 355,
+    "ratePct": 29.3
    },
    "riichi|bad|t13_15|w0_4|yaku": {
-    "n": 287,
-    "ratePct": 26.13
+    "n": 308,
+    "ratePct": 27.92
    },
    "riichi|bad|t16|w0_4|noyaku": {
-    "n": 53,
-    "ratePct": 15.09
+    "n": 68,
+    "ratePct": 17.65
    },
    "riichi|bad|t16|w0_4|yaku": {
-    "n": 68,
-    "ratePct": 14.71
+    "n": 57,
+    "ratePct": 10.53
    },
    "riichi|bad|t1_3|w0_4|noyaku": {
-    "n": 218,
-    "ratePct": 56.88
+    "n": 233,
+    "ratePct": 53.22
    },
    "riichi|bad|t1_3|w0_4|yaku": {
-    "n": 123,
-    "ratePct": 45.53
+    "n": 134,
+    "ratePct": 47.01
    },
    "riichi|bad|t4_6|w0_4|noyaku": {
-    "n": 1192,
-    "ratePct": 47.99
+    "n": 1204,
+    "ratePct": 50.25
    },
    "riichi|bad|t4_6|w0_4|yaku": {
-    "n": 659,
-    "ratePct": 49.01
+    "n": 664,
+    "ratePct": 49.85
    },
    "riichi|bad|t7_9|w0_4|noyaku": {
-    "n": 1542,
-    "ratePct": 40.99
+    "n": 1557,
+    "ratePct": 41.1
    },
    "riichi|bad|t7_9|w0_4|yaku": {
-    "n": 908,
-    "ratePct": 40.86
+    "n": 922,
+    "ratePct": 43.49
    },
    "riichi|good|t10_12|w5_8|noyaku": {
-    "n": 253,
-    "ratePct": 53.75
+    "n": 268,
+    "ratePct": 52.99
    },
    "riichi|good|t10_12|w5_8|yaku": {
-    "n": 458,
-    "ratePct": 48.25
+    "n": 472,
+    "ratePct": 49.36
    },
    "riichi|good|t10_12|w9|noyaku": {
     "n": 9,
@@ -14766,83 +14909,83 @@ const WIN_RATE_STATE = {
    },
    "riichi|good|t10_12|w9|yaku": {
     "n": 17,
-    "ratePct": 82.35
+    "ratePct": 64.71
    },
    "riichi|good|t13_15|w5_8|noyaku": {
-    "n": 82,
-    "ratePct": 40.24
+    "n": 93,
+    "ratePct": 51.61
    },
    "riichi|good|t13_15|w5_8|yaku": {
     "n": 138,
-    "ratePct": 35.51
+    "ratePct": 48.55
    },
    "riichi|good|t13_15|w9|noyaku": {
-    "n": 1,
-    "ratePct": 0
-   },
-   "riichi|good|t13_15|w9|yaku": {
-    "n": 1,
-    "ratePct": 0
-   },
-   "riichi|good|t16|w5_8|noyaku": {
-    "n": 19,
-    "ratePct": 10.53
-   },
-   "riichi|good|t16|w5_8|yaku": {
-    "n": 27,
-    "ratePct": 22.22
-   },
-   "riichi|good|t16|w9|yaku": {
     "n": 2,
     "ratePct": 0
    },
+   "riichi|good|t13_15|w9|yaku": {
+    "n": 3,
+    "ratePct": 33.33
+   },
+   "riichi|good|t16|w5_8|noyaku": {
+    "n": 14,
+    "ratePct": 35.71
+   },
+   "riichi|good|t16|w5_8|yaku": {
+    "n": 24,
+    "ratePct": 33.33
+   },
+   "riichi|good|t16|w9|yaku": {
+    "n": 1,
+    "ratePct": 0
+   },
    "riichi|good|t1_3|w5_8|noyaku": {
-    "n": 51,
-    "ratePct": 76.47
+    "n": 54,
+    "ratePct": 75.93
    },
    "riichi|good|t1_3|w5_8|yaku": {
-    "n": 81,
-    "ratePct": 75.31
+    "n": 82,
+    "ratePct": 78.05
    },
    "riichi|good|t1_3|w9|noyaku": {
     "n": 1,
     "ratePct": 0
    },
    "riichi|good|t1_3|w9|yaku": {
-    "n": 13,
-    "ratePct": 92.31
+    "n": 16,
+    "ratePct": 93.75
    },
    "riichi|good|t4_6|w5_8|noyaku": {
-    "n": 267,
-    "ratePct": 70.04
+    "n": 281,
+    "ratePct": 69.4
    },
    "riichi|good|t4_6|w5_8|yaku": {
-    "n": 565,
-    "ratePct": 69.2
+    "n": 589,
+    "ratePct": 71.48
    },
    "riichi|good|t4_6|w9|noyaku": {
     "n": 15,
-    "ratePct": 80
+    "ratePct": 73.33
    },
    "riichi|good|t4_6|w9|yaku": {
-    "n": 48,
-    "ratePct": 66.67
+    "n": 40,
+    "ratePct": 75
    },
    "riichi|good|t7_9|w5_8|noyaku": {
-    "n": 417,
-    "ratePct": 58.03
+    "n": 438,
+    "ratePct": 60.96
    },
    "riichi|good|t7_9|w5_8|yaku": {
-    "n": 836,
-    "ratePct": 57.78
+    "n": 855,
+    "ratePct": 57.08
    },
    "riichi|good|t7_9|w9|noyaku": {
-    "n": 20,
-    "ratePct": 85
+    "n": 22,
+    "ratePct": 81.82
    },
    "riichi|good|t7_9|w9|yaku": {
-    "n": 42,
-    "ratePct": 76.19
+    "n": 43,
+    "ratePct": 76.74
    }
   }
  }
@@ -14863,73 +15006,73 @@ __m["src/data/preTenpaiWinTable.js"] = (function () {
 // 使うのは src/core/evaluate.js(係数 threatWinScale)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const PRE_TENPAI_WIN = {
  "mleague": {
-  "generation": 4,
+  "generation": 5,
   "hanchan": 1200,
   "seedFrom": 326000000,
   "seedTo": 326001199,
   "measuredAt": "2026-10-03",
   "cells": {
    "1|0|closed": {
-    "n": 104210,
-    "factor": 0.7178
+    "n": 106053,
+    "factor": 0.7654
    },
    "1|0|open": {
-    "n": 34492,
-    "factor": 0.9279
+    "n": 31927,
+    "factor": 0.9732
    },
    "1|1|closed": {
-    "n": 25704,
-    "factor": 0.3354
+    "n": 26313,
+    "factor": 0.3746
    },
    "1|1|open": {
-    "n": 11661,
-    "factor": 0.2747
+    "n": 7943,
+    "factor": 0.3767
    },
    "1|2|closed": {
-    "n": 2205,
-    "factor": 0.2578
+    "n": 2539,
+    "factor": 0.2717
    },
    "1|2|open": {
-    "n": 1174,
-    "factor": 0.0765
+    "n": 794,
+    "factor": 0.1204
    },
    "2|0|closed": {
-    "n": 144447,
-    "factor": 0.9511
+    "n": 147676,
+    "factor": 1.0261
    },
    "2|0|open": {
-    "n": 9937,
-    "factor": 1.3146
+    "n": 6881,
+    "factor": 1.7119
    },
    "2|1|closed": {
-    "n": 45325,
-    "factor": 0.1946
+    "n": 46853,
+    "factor": 0.2319
    },
    "2|1|open": {
-    "n": 6649,
-    "factor": 0.157
+    "n": 4980,
+    "factor": 0.2717
    },
    "2|2|closed": {
-    "n": 5862,
-    "factor": 0.0723
+    "n": 6260,
+    "factor": 0.0941
    },
    "2|2|open": {
-    "n": 876,
-    "factor": 0.0189
+    "n": 700,
+    "factor": 0.1068
    }
   },
   "byThreat": {
    "0": {
-    "n": 293086,
-    "factor": 0.854
+    "n": 292537,
+    "factor": 0.911
    },
    "1": {
-    "n": 89339,
-    "factor": 0.274
+    "n": 86089,
+    "factor": 0.326
    },
    "2": {
-    "n": 10117,
-    "factor": 0.145
+    "n": 10293,
+    "factor": 0.177
    }
   }
  }
@@ -14950,11 +15093,11 @@ __m["src/data/winCalGen4Table.js"] = (function () {
 // 使うのは src/core/ai.js(係数 winCalGen4)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
 const WIN_CAL_GEN4 = {
  "rule": "mleague",
- "generation": 4,
+ "generation": 5,
  "hanchan": 1200,
  "seedFrom": 327000000,
  "seedTo": 327001199,
- "measuredAt": "2026-10-02",
+ "measuredAt": "2026-10-03",
  "turns": [
   [
    1,
@@ -14978,33 +15121,33 @@ const WIN_CAL_GEN4 = {
   ]
  ],
  "cells": {
-  "0,0": 0.9391,
-  "0,1": 0.9053,
-  "0,2": 0.8394,
-  "0,3": 0.7635,
-  "0,4": 0.6802,
-  "1,0": 0.9475,
-  "1,1": 0.8178,
-  "1,2": 0.7127,
-  "1,3": 0.6433,
-  "1,4": 0.4691,
-  "2,0": 1.1525,
-  "2,1": 0.9084,
-  "2,2": 0.6877,
-  "2,3": 0.4624,
-  "2,4": 0.2147,
-  "3,0": 0.8839,
-  "3,1": 0.5889,
-  "3,2": 0.3146,
-  "3,3": 0.0881,
-  "3,4": 0.0466,
-  "4,0": 0.6432,
-  "4,1": 0.3778,
-  "4,2": 0.0926,
-  "4,3": 0.0817,
-  "4,4": 0.6944,
-  "5,0": 0.5845,
-  "5,1": 0.2455
+  "0,0": 0.9408,
+  "0,1": 0.93,
+  "0,2": 0.8826,
+  "0,3": 0.819,
+  "0,4": 0.7253,
+  "1,0": 0.9706,
+  "1,1": 0.8577,
+  "1,2": 0.7548,
+  "1,3": 0.7081,
+  "1,4": 0.5777,
+  "2,0": 1.2043,
+  "2,1": 0.9619,
+  "2,2": 0.7523,
+  "2,3": 0.5458,
+  "2,4": 0.2881,
+  "3,0": 0.9162,
+  "3,1": 0.6246,
+  "3,2": 0.3574,
+  "3,3": 0.1512,
+  "3,4": 0.1579,
+  "4,0": 0.679,
+  "4,1": 0.3854,
+  "4,2": 0.1044,
+  "4,3": 0.405,
+  "4,4": 0.7042,
+  "5,0": 0.6288,
+  "5,1": 0.4153
  }
 };
 
@@ -17531,8 +17674,8 @@ const GENERATIONS = {
   "updated": "2026-09-27",
   "rules": {
     "mleague": {
-      "generation": 4,
-      "updatedAt": "2026-10-01",
+      "generation": 5,
+      "updatedAt": "2026-10-03",
       "ladder": [
         {
           "generation": 1,
@@ -17623,6 +17766,12 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
             "learnedDangerV2": 0,
             "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
@@ -17726,6 +17875,12 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
             "learnedDangerV2": 0,
             "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
@@ -17829,6 +17984,12 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
             "learnedDangerV2": 0,
             "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
@@ -17932,6 +18093,12 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
             "learnedDangerV2": 0,
             "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
@@ -17944,6 +18111,115 @@ const GENERATIONS = {
             "ponFarTurnLeft": 4,
             "chiFarUkeire": 22,
             "chiFarTurnLeft": 5
+          }
+        },
+        {
+          "generation": 5,
+          "label": "流局の聴牌料",
+          "description": "流局が近いと、和了より流局までに聴牌できるかを見て切る牌を選ぶ。遠い手からポンしない。残り巡目が少ないと遠い手から鳴かない。遠い手からチーしない。残り巡目が少ないとチーしない。流局間際に降りているときも、同じくらい安全な牌の中から聴牌に近づく牌を切る。仕掛けた手の打点を、鳴いた牌のドラや役まで含めて見積もる。",
+          "params": {
+            "evalMode": 1,
+            "lookaheadTop": 0,
+            "yakuhaiValue": 3,
+            "otherHonorValue": 0,
+            "terminalValue": 1,
+            "value28": 2,
+            "middleValue": 3,
+            "doraValue": 5,
+            "tileValueWeight": 1.5,
+            "blockTierWeight": 0,
+            "blockCutTieBreak": 1,
+            "goodShapeWeight": 0,
+            "goodShapeTop": 3,
+            "threatWeightMin": 100,
+            "valueWeight": 0.5,
+            "rankEvWeight": 1,
+            "dealerThreatBonus": 1,
+            "foldDangerWeight": 20,
+            "ishantenPushUkeire": 10,
+            "ishantenPushUkeire3": 13,
+            "ishantenPushTurnLeft": 6,
+            "ishantenPushDanger": 8,
+            "badWaitTiles": 2,
+            "badWaitTiles3": 3,
+            "badWaitDanger": 10,
+            "tenpaiDangerWeight": 0.5,
+            "evBlend": 0,
+            "evBlendShanten": 8,
+            "evPtWeight": 0,
+            "evPtLeft": 7,
+            "winCalWeight": 0,
+            "yakuPotentialWeight": 0,
+            "useAdjValue": 0,
+            "valueReadWeight": 0,
+            "myValuePushWeight": 0,
+            "dropRiskWeight": 0,
+            "pushEvWeight": 0,
+            "pushHorizon": 0.6,
+            "dropRiskMax": 0,
+            "damaRemain": 3,
+            "damaTurnLeft": 2,
+            "damaRemainRich": 4,
+            "damaDora": 5,
+            "chaseRemain": 2,
+            "dangerModel": 1,
+            "safeKeepTieBreak": 0,
+            "safeKeepWeight": 0,
+            "wallAwareUkeire": 1,
+            "wallAwareWaits": 1,
+            "wallAwareWinRate": 0,
+            "wallAwareWinRateScaled": 0,
+            "wallAwareThreatTenpai": 1,
+            "outLikelyWait": 1,
+            "allLastPassRon": 1,
+            "callableUkeire": 1,
+            "tenpaiEndDiscard": 1,
+            "learnedDanger": 0,
+            "lateLiveHonorDanger": 0,
+            "proDamaModel": 0,
+            "meldHanFix": 1,
+            "foldKeiten": 1,
+            "foldKeitenEps": 0.005,
+            "yakuhaiTieFirst": 0,
+            "callStdShanten": 0,
+            "lateTerminalDanger": 0,
+            "callableOutLikely": 0,
+            "doraDanger": 0,
+            "callTenpaiSignal": 0,
+            "openThreatDodge": 0,
+            "openThreatDodgeUkeire": 0.25,
+            "honorSeenKeep": 0,
+            "hanEstimateFix": 0,
+            "allLastRiichiNeed": 0,
+            "riichiValueCalib": 0,
+            "callEvDecision": 0,
+            "callEvMargin": 0,
+            "dealerTenpaiBonus": 0,
+            "winRateByState": 0,
+            "callStdShantenAll": 0,
+            "threatWinScale": 0,
+            "winCalGen4": 0,
+            "outLikelyRiichi": 0,
+            "shantenBackRatio": 0,
+            "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
+            "shapeTierTie": 0,
+            "keitenLate": 1,
+            "riichiTileRead": 1,
+            "determinizedMC": 0,
+            "tieBreakRandom": 0,
+            "ponFarUkeire": 60,
+            "ponFarUkeire3": 26,
+            "ponFarTurnLeft": 20,
+            "chiFarUkeire": 34,
+            "chiFarTurnLeft": 20
           }
         }
       ]
@@ -18041,6 +18317,12 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "shantenBackTurnMax": 0,
+            "refuseTenpaiRemain": 0,
+            "earlyIsolatedOrder": 0,
+            "callMinPts": 0,
+            "callMinPtsTurn": 6,
+            "callUkeireLossMax": 0,
             "learnedDangerV2": 0,
             "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
