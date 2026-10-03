@@ -1423,6 +1423,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<script>window.__GEN_GAMES = {"mleague":{"generation":4,"games":1647432,"runs":26,"asOf":"2026-10-03"}};</script>
 </head>
 <body>
 <header class="topbar">
@@ -1446,7 +1447,7 @@ body:not([data-route="home"]) .footer { display: none; }
 <main id="app"></main>
 <footer class="footer">評価に使う基準値は <a href="#/data">データ集</a> にまとめています。数値は2026年9月時点の当アプリ独自の推定を含みます。</footer>
 <script>
-// 101 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
+// 104 個のモジュールを tools/bundle.mjs で1ファイルにまとめたもの。
 // 元のソースは src/ 以下を参照。
 (function () {
   'use strict';
@@ -4212,10 +4213,30 @@ function diagnose(counts = {}) {
   return { ready, pending, skipped };
 }
 
+/**
+ * 「いま一番伸びる」に出す技術。**控えめな見積もりで TOP_MIN 点以上伸びるものだけ。**
+ * どれもほぼできていると、伸びしろの下側が 0.0 点の技術が1位になり、
+ * 習熟度 100% の技術に「いま一番伸びる」が付いた(人の報告 2026-10-03)。
+ * 0.5点/半荘は、自己対戦 12,000対局の 2σ(約0.33pt)より大きい差
+ */
+const TOP_MIN = 0.5;
+
+/** 習熟度の表記。95%の幅で出す(幅が無いときは1つの数字) */
+function levelText(r) {
+  const pct = (x) => Math.round(x * 100);
+  if (r.levelLo == null || r.levelHi == null) return `${pct(r.level)}%`;
+  const lo = pct(r.levelLo), hi = pct(r.levelHi);
+  return lo === hi ? `${lo}%` : `${lo}〜${hi}%`;
+}
+function pickTop(d) {
+  const r = d.ready[0];
+  return r && r.upsideLo >= TOP_MIN ? r : null;
+}
+
 function row(skill, w, c) {
   if (!w) {
     return { id: skill.id, name: skill.name, human: skill.human, group: skill.group,
-      n: 0, meter: null, level: null, upside: null, upsideLo: null, upsideHi: null,
+      n: 0, meter: null, level: null, levelLo: null, levelHi: null, upside: null, upsideLo: null, upsideHi: null,
       enough: false, need: null, atCeil: false };
   }
   const level = levelFromMeter(skill.id, w.level);
@@ -4227,7 +4248,9 @@ function row(skill, w, c) {
   return {
     id: skill.id, name: skill.name, human: skill.human, group: skill.group,
     n: w.n, meter: w.level, meterLo: w.lo, meterHi: w.hi,
-    level, upside: lossAt(skill, level), upsideLo, upsideHi,
+    // 習熟度も幅で持つ。点だけ出すと、測れる上限に張り付いた人が一律に 100% に見える
+    level, levelLo: levelFromMeter(skill.id, w.lo), levelHi: levelFromMeter(skill.id, w.hi),
+    upside: lossAt(skill, level), upsideLo, upsideHi,
     enough: w.hi - w.lo <= ENOUGH_WIDTH, need: needMore(c),
     // 上限に張り付いている = この指標ではこれ以上の差が測れない
     atCeil: ceil !== null && w.lo >= ceil,
@@ -4245,11 +4268,11 @@ function describe(r) {
     return `${r.name}: ${n}問われれば判定できます(いま${r.n}回)`;
   }
   if (r.atCeil) return `${r.name}: この指標で測れる上限に達しています(${r.n}回)`;
-  return `${r.name}: 習熟度 ${Math.round(r.level * 100)}% / できるようになれば1半荘あたり ` +
+  return `${r.name}: 習熟度 ${levelText(r)} / できるようになれば1半荘あたり ` +
     `${r.upsideLo.toFixed(1)}〜${r.upsideHi.toFixed(1)}点の改善が見込めます(${r.n}回の観測)`;
 }
 
-return { diagnose, describe };
+return { diagnose, TOP_MIN, levelText, pickTop, describe };
 })();
 
 __m["src/ui/views/home.js"] = (function () {
@@ -4268,7 +4291,7 @@ const { el } = __m["src/ui/tiles.js"];
 const { store } = __m["src/ui/store.js"];
 const { authState, cloudEnabled, cloudReady, signIn, signOut } = __m["src/ui/cloud.js"];
 const { inboxAvailable, onInboxChange, openInbox, unreadCount, isBanned } = __m["src/ui/inbox.js"];
-const { diagnose } = __m["src/core/diagnose.js"];
+const { diagnose, pickTop } = __m["src/core/diagnose.js"];
 const W = 1280, H = 720;
 
 /** 入口の一覧。**ここに無い画面はトップから行けない**(tests/routes.test.js が見る) */
@@ -4542,7 +4565,7 @@ const MOVES = ['run', 'hop', 'spin', 'sniff', 'zoom'];
 function buddy(slot) {
   const counts = store.skills || {};
   const total = handsPlayed();
-  const top = diagnose(counts).ready[0];
+  const top = pickTop(diagnose(counts));
   // 記録から言えることがあれば最初に言う。弱点は「一緒に考える」顔で(落ち込んだ顔は出さない)
   const first = top
     ? { text: `いま一番伸びるのは「${top.name}」。直せば1半荘あたり ${top.upsideLo.toFixed(1)}〜${top.upsideHi.toFixed(1)}点。一緒に見よう。`, face: 'with', href: '#/diagnose' }
@@ -5552,6 +5575,47 @@ function threatWinFactor(table, shanten, threats, open) {
 return { cellKey, MIN_N, threatWinFactor };
 })();
 
+__m["src/core/openRonYaku.js"] = (function () {
+// 副露者の「当たり牌を打たれたらロンする割合」を、副露から見える役の手掛かりで引く(係数 openRonByYakuSignal)。
+//
+// 手掛かりの分け方は集計(63)(tools/wait-shapes.mjs --open-ron-out)と同じものを使う約束なので、集計の道具もここを読む。
+// 集計の結果: docs/measurements/2026-10-03-openRonByYakuSignal-survey.md。表は src/data/openRonYakuTable.js
+const { isHonor, numOf, suitOf } = __m["src/core/tiles.js"];
+/** 手掛かりの区分。上から順に当てはめる(先に決めた順) */
+const CLUES = ['yakuhai', 'tanyao', 'flush', 'none'];
+
+/**
+ * 副露 melds の役の手掛かり。
+ *   yakuhai = 役牌(三元牌・自風・場風)のポン・明槓・加槓がある(暗槓は明槓ではないので見ない)
+ *   tanyao  = 副露の牌が全部 2〜8 の数牌
+ *   flush   = 副露の牌が1色の数牌と字牌だけ(字牌だけの副露もここ)
+ *   none    = どれでもない
+ * 暗槓の牌も色・数字の判定には入る。tiles は牌のオブジェクト({ kind })
+ */
+function clueOf(melds, seatWind, roundWind) {
+  const yk = (k) => k >= 31 || k === seatWind || k === roundWind;
+  if (melds.some((m) => m.type !== 'chi' && m.type !== 'ankan' && yk(m.kind))) return 'yakuhai';
+  const ks = melds.flatMap((m) => m.tiles.map((t) => t.kind));
+  if (ks.every((k) => !isHonor(k) && numOf(k) >= 2 && numOf(k) <= 8)) return 'tanyao';
+  const suits = new Set(ks.filter((k) => !isHonor(k)).map((k) => suitOf(k)));
+  if (suits.size <= 1) return 'flush';
+  return 'none';
+}
+
+/** 件数がこれ未満のマスは、いまの副露の行の値に落とす */
+const MIN_N = 200;
+
+/**
+ * ロンする割合。table = { cells: { [clue]: { num: { dealt, rate }, honor: { dealt, rate } } } }。マスが無いか件数 MIN_N 未満なら base
+ */
+function openRonRate(base, clue, honor, table) {
+  const c = table.cells[clue]?.[honor ? 'honor' : 'num'];
+  return c && c.dealt >= MIN_N ? c.rate : base;
+}
+
+return { CLUES, clueOf, MIN_N, openRonRate };
+})();
+
 __m["src/core/riichiRead.js"] = (function () {
 // リーチの宣言牌との関係で、形モデルの放銃率に倍率を掛ける(係数 riichiTileRead)。
 //
@@ -5784,6 +5848,7 @@ __m["src/core/waitDanger.js"] = (function () {
 //
 // 係数は `src/data/waitShapes.js`(tools/make-wait-shapes.mjs の生成物)。
 // **打ち筋に依存する値なので、世代が変わったら測り直す。**
+const { openRonRate } = __m["src/core/openRonYaku.js"];
 const { isHonor } = __m["src/core/tiles.js"];
 const { riichiReadFactor } = __m["src/core/riichiRead.js"];
 const { lateHonorFactor, lateTerminalFactor } = __m["src/core/lateHonor.js"];
@@ -5933,7 +5998,9 @@ function shapeDanger(kind, threats, data) {
     // 平均の 41% は役の無いチー手に引きずられた値で、字牌には当たらない
     // (実測 60半荘: 副露 × 字牌 90.9% 対 副露 × 数牌 40.4%)
     if (!data.ronGivenDealtByTile) throw new Error('ronGivenDealtByTile がありません。node tools/wait-shapes.mjs <半荘数> --emit= で測り直してください');
-    const ronRate = data.ronGivenDealtByTile[state][isHonor(kind) ? 'honor' : 'num'];
+    let ronRate = data.ronGivenDealtByTile[state][isHonor(kind) ? 'honor' : 'num'];
+    // 副露者は、副露から見える役の手掛かり別の割合で引く(openRonByYakuSignal。ai.js の activeThreats が付けたときだけ。src/core/openRonYaku.js)
+    if (state === 'open' && c.openRon) ronRate = (1 - c.openRon.w) * ronRate + c.openRon.w * openRonRate(ronRate, c.openRon.clue, isHonor(kind), c.openRon.table);
     // リーチの宣言牌との関係の倍率(riichiTileRead。ai.js の activeThreats が付けたときだけ)
     const m = c.riichiRead ? riichiReadFactor(kind, c.riichiRead.decl, c.riichiRead.table, c.riichiRead.w) : 1;
     // 字牌の見え枚数 x 巡目の倍率(lateLiveHonorDanger。ai.js の activeThreats が付けたときだけ)
@@ -8924,7 +8991,7 @@ __m["src/ui/views/diagnose.js"] = (function () {
 // 弱い」と出したら占いになる。区間が広いうちは「あと何回」とだけ出す。
 const { el } = __m["src/ui/tiles.js"];
 const { store } = __m["src/ui/store.js"];
-const { diagnose } = __m["src/core/diagnose.js"];
+const { diagnose, pickTop, levelText, TOP_MIN } = __m["src/core/diagnose.js"];
 const { CURRICULUM } = __m["src/data/curriculum.js"];
 const { linkFor } = __m["src/ui/links.js"];
 function renderDiagnose(app) {
@@ -8944,7 +9011,8 @@ function renderDiagnose(app) {
 
   // ---- 伸びしろ順 ----
   if (d.ready.length) {
-    app.appendChild(el('h2', { text: 'ここを直すと一番伸びます' }));
+    app.appendChild(el('h2', { text: pickTop(d) ? 'ここを直すと一番伸びます' : '伸びしろの順' }));
+    if (!pickTop(d)) app.appendChild(el('p', { class: 'small', text: `控えめに見積もって1半荘あたり${TOP_MIN}点以上伸びる技術は、いまはありません。測れる技術はどれもよくできています。` }));
     app.appendChild(el('p', { class: 'muted small', text: '「1半荘あたり何点の改善が見込めるか」の控えめな見積もりの順です。幅は95%の範囲。' }));
     for (const r of d.ready) app.appendChild(skillCard(r));
   }
@@ -8980,7 +9048,7 @@ function skillCard(r) {
     el('p', { class: 'muted small', text: r.human || '' }),
     bar,
     el('p', {}, [
-      el('strong', { text: `習熟度 ${pct}%` }),
+      el('strong', { text: `習熟度 ${levelText(r)}` }),
       el('span', { class: 'muted small', text: `(${r.n}回の観測)` }),
     ]),
     r.atCeil
@@ -9552,6 +9620,16 @@ const DEFAULT_AI_PARAMS = {
   shantenBackRatio: 0,
   shantenBackGoodRateMax: 0.3,
 
+  // ---- 危険度の回帰の補正を riichiTileRead の後に掛ける版(0〜1)----
+  // learnedDanger と同じ形(形モデルの放銃率に掛けるロジスティック回帰)で、重みは riichiTileRead の倍率を掛けた後の値に当て、宣言牌の4特徴は外した
+  // (src/data/learnedDangerV2Table.js)。learnedDanger とは片方だけ使う(両方立てたら V2)
+  learnedDangerV2: 0,
+
+  // ---- 副露者のロンする割合を役の手掛かりで引く(0〜1)----
+  // 形モデル(dangerModel=1)の「当たり牌を打たれたらロンされる割合」の副露の行を、副露者の役の手掛かり(役牌のポン / 断幺 / 1色 / なし、
+  // src/core/openRonYaku.js)x 字牌・数牌 の実測(集計(63)、src/data/openRonYakuTable.js。件数 200 未満のマスはいまの副露の行)に置き換える(w で混ぜる)
+  openRonByYakuSignal: 0,
+
   // ---- 形のティアで完全な同点を割る(0=切、1=入)----
   // evalMode=1 の牌効率の枝で、打牌後の向聴が1以上、牌効率のスコアと受け入れ枚数が完全に同点の
   // 候補が2つ以上あるときだけ、その中で一番低いティアの形から切る(src/core/shapeTier.js)。
@@ -9654,6 +9732,8 @@ const PARAM_RANGES = {
   outLikelyRiichi: [0, 1, 0.5],
   shantenBackRatio: [0, 6, 1],
   shantenBackGoodRateMax: [0, 1, 0.1],
+  learnedDangerV2: [0, 1, 0.5],
+  openRonByYakuSignal: [0, 1, 0.5],
   shapeTierTie: [0, 1, 1],
   keitenLate: [0, 1, 1],
   riichiTileRead: [0, 1, 0.5],
@@ -9777,7 +9857,7 @@ function validateGroups() {
  *   evalMode / lookaheadTop … 評価方法そのものの切り替え(数値の微調整ではない)
  *   goodShapeWeight / goodShapeTop … 0以外にすると1手先読みが走る(コストは tools/bench.mjs)
  */
-const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll', 'threatWinScale', 'winCalGen4', 'outLikelyRiichi', 'shantenBackRatio', 'shantenBackGoodRateMax'];
+const MANUAL_KEYS = ['evalMode', 'lookaheadTop', 'goodShapeWeight', 'goodShapeTop', 'dangerModel', 'tieBreakRandom', 'wallAwareUkeire', 'wallAwareWaits', 'shapeTierTie', 'keitenLate', 'riichiTileRead', 'determinizedMC', 'wallAwareWinRate', 'wallAwareThreatTenpai', 'outLikelyWait', 'allLastPassRon', 'wallAwareWinRateScaled', 'callableUkeire', 'tenpaiEndDiscard', 'learnedDanger', 'lateLiveHonorDanger', 'proDamaModel', 'meldHanFix', 'foldKeiten', 'foldKeitenEps', 'yakuhaiTieFirst', 'callStdShanten', 'lateTerminalDanger', 'callableOutLikely', 'doraDanger', 'callTenpaiSignal', 'openThreatDodge', 'openThreatDodgeUkeire', 'honorSeenKeep', 'hanEstimateFix', 'allLastRiichiNeed', 'riichiValueCalib', 'callEvDecision', 'callEvMargin', 'dealerTenpaiBonus', 'winRateByState', 'callStdShantenAll', 'threatWinScale', 'winCalGen4', 'outLikelyRiichi', 'shantenBackRatio', 'shantenBackGoodRateMax', 'learnedDangerV2', 'openRonByYakuSignal'];
 
 /**
  * 三麻でしか使われない係数(ai.js の game.P === 3 の分岐)。
@@ -9890,6 +9970,7 @@ const GATED_BY = {
   winCalGen4: { all: ['evalMode'] },
   shantenBackRatio: { all: ['evalMode'] },
   shantenBackGoodRateMax: { all: ['evalMode', 'shantenBackRatio'] },
+  openRonByYakuSignal: { all: ['dangerModel'] },
 };
 
 /**
@@ -10868,6 +10949,7 @@ const { classify } = __m["src/core/callable.js"];
 const { trackCalls, oppFeatures, callTenpaiProb } = __m["src/core/callTenpai.js"];
 const { allLastRanks, allLastRiichiDecision } = __m["src/core/allLastRiichi.js"];
 const { riichiValueOf } = __m["src/core/riichiValue.js"];
+const { clueOf: openRonClueOf } = __m["src/core/openRonYaku.js"];
 const { features: proFeatures, riichiProb: proRiichiProb } = __m["src/core/proDama.js"];
 const { publicCounts: learnedPublic, declOf: learnedDeclOf, isLearnedTarget } = __m["src/core/learnedDanger.js"];
 const { SKILLS, degradedChoice } = __m["src/core/handicap.js"];
@@ -10924,7 +11006,14 @@ function activeThreats(game, seat, p) {
     }
     // リーチ者・副露者なら形モデルの放銃率をロジスティック回帰で補正する(learnedDanger。0 なら付けない)。
     // 特徴量は打牌ごとに waitDanger.js が src/core/learnedDanger.js で作る
-    if (p.learnedDanger > 0 && game.learnedDanger) {
+    // learnedDangerV2 は riichiTileRead を掛けた後の値に当てた重み(宣言牌の4特徴は 0)。learnedDanger とは片方だけ使い、V2 が立っていれば V2 を使う
+    if (p.learnedDangerV2 > 0 && game.learnedDangerV2) {
+      const x = game.state.seats[t.seatIndex];
+      if (isLearnedTarget(x)) {
+        pub ??= learnedPublic(game);
+        ctx.learned = { x, pub, decl: learnedDeclOf(x), table: game.learnedDangerV2, w: Math.min(1, p.learnedDangerV2) };
+      }
+    } else if (p.learnedDanger > 0 && game.learnedDanger) {
       const x = game.state.seats[t.seatIndex];
       if (isLearnedTarget(x)) {
         pub ??= learnedPublic(game);
@@ -10935,6 +11024,11 @@ function activeThreats(game, seat, p) {
     if (p.lateLiveHonorDanger > 0 && game.lateHonor) {
       pub ??= learnedPublic(game);
       ctx.lateHonor = { pub, turn: game.turnNumber(seat), table: game.lateHonor, w: Math.min(1, p.lateLiveHonorDanger) };
+    }
+    // 副露者(リーチなし)のロンする割合を、副露から見える役の手掛かり別に引く(openRonByYakuSignal。0 なら付けない)
+    if (p.openRonByYakuSignal > 0 && game.openRonYaku && !t.riichi && t.melds) {
+      const x = game.state.seats[t.seatIndex];
+      ctx.openRon = { clue: openRonClueOf(x.melds, game.seatWind(x.index), game.roundWind()), table: game.openRonYaku, w: Math.min(1, p.openRonByYakuSignal) };
     }
     // ドラの危険度(doraDanger。0 なら付けない)。巡目は打つ人の巡目
     if (p.doraDanger > 0 && game.doraDanger) {
@@ -13528,6 +13622,139 @@ function learnedDangerFor(rule) {
 return { LEARNED_DANGER, learnedDangerFor };
 })();
 
+__m["src/data/learnedDangerV2Table.js"] = (function () {
+// 危険度の補正の重み(ロジスティック回帰、riichiTileRead の後に掛ける版)—— tools/make-learned-danger-v2.mjs が生成。手で編集しないこと
+//
+// 実体は data/learned-danger-v2.<ルール>.json(tools/learned-danger-survey.mjs --emit の実測)。特徴量の並びは src/core/learnedDanger.js の FEATURES。
+// 使うのは src/core/waitDanger.js(係数 learnedDangerV2)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const LEARNED_DANGER_V2 = {
+ "mleague": {
+  "generation": 4,
+  "hanchan": 1200,
+  "seedFrom": 292000000,
+  "seedTo": 292001199,
+  "measuredAt": "2026-10-03",
+  "features": [
+   "bias",
+   "honor",
+   "terminal",
+   "n28",
+   "suji",
+   "halfSuji",
+   "kabeOut",
+   "seen1",
+   "seen2",
+   "seen3",
+   "turn",
+   "xRiichi",
+   "xOpen",
+   "matagiUra",
+   "matagi",
+   "ura",
+   "earlyOutside",
+   "meldSuit",
+   "lastTedashi",
+   "logitW"
+  ],
+  "weights": [
+   -0.915397,
+   0.057368,
+   0.041717,
+   0.078907,
+   0.055836,
+   -0.099859,
+   0.390538,
+   -0.407864,
+   -0.877898,
+   -1.04069,
+   0.343828,
+   -1.17799,
+   0.262593,
+   0,
+   0,
+   0,
+   0,
+   -0.458581,
+   -0.120719,
+   0.124061
+  ],
+  "logitShape": 0.753646
+ }
+};
+
+/** そのルールの重み。無ければ null(係数は効かない) */
+function learnedDangerV2For(rule) {
+  return LEARNED_DANGER_V2[rule] || null;
+}
+
+return { LEARNED_DANGER_V2, learnedDangerV2For };
+})();
+
+__m["src/data/openRonYakuTable.js"] = (function () {
+// 副露者のロンする割合(役の手掛かり別)—— tools/make-open-ron-yaku.mjs が生成。手で編集しないこと
+//
+// 実体は data/open-ron-yaku.gen4.json(tools/wait-shapes.mjs --open-ron-out の実測)。手掛かりの分け方は src/core/openRonYaku.js。
+// 使うのは src/core/waitDanger.js(係数 openRonByYakuSignal)。**打ち筋に依存する値なので、世代が変わったら測り直す。**
+const OPEN_RON_YAKU = {
+ "mleague": {
+  "generation": 4,
+  "hanchan": 1200,
+  "seedFrom": 335000000,
+  "seedTo": 335001199,
+  "measuredAt": "2026-10-03",
+  "cells": {
+   "yakuhai": {
+    "num": {
+     "dealt": 1926,
+     "rate": 0.9237
+    },
+    "honor": {
+     "dealt": 97,
+     "rate": 0.9794
+    }
+   },
+   "tanyao": {
+    "num": {
+     "dealt": 3878,
+     "rate": 0.3138
+    },
+    "honor": {
+     "dealt": 235,
+     "rate": 0.7191
+    }
+   },
+   "flush": {
+    "num": {
+     "dealt": 1582,
+     "rate": 0.1081
+    },
+    "honor": {
+     "dealt": 157,
+     "rate": 0.7834
+    }
+   },
+   "none": {
+    "num": {
+     "dealt": 601,
+     "rate": 0.0715
+    },
+    "honor": {
+     "dealt": 71,
+     "rate": 0.7746
+    }
+   }
+  }
+ }
+};
+
+/** そのルールの表。無ければ null(係数は効かない) */
+function openRonYakuFor(rule) {
+  return OPEN_RON_YAKU[rule] || null;
+}
+
+return { OPEN_RON_YAKU, openRonYakuFor };
+})();
+
 __m["src/data/rankEvTable.js"] = (function () {
 // 着順期待値の表 —— tools/make-rank-ev-table.mjs が生成。手で編集しないこと
 //
@@ -14801,6 +15028,8 @@ const { riichiReadFor } = __m["src/data/riichiReadTable.js"];
 const { outLikelyFor } = __m["src/data/outLikelyTable.js"];
 const { waitScaleFor } = __m["src/data/waitScaleTable.js"];
 const { learnedDangerFor } = __m["src/data/learnedDangerTable.js"];
+const { learnedDangerV2For } = __m["src/data/learnedDangerV2Table.js"];
+const { openRonYakuFor } = __m["src/data/openRonYakuTable.js"];
 const { rankEvFor } = __m["src/data/rankEvTable.js"];
 const { lateHonorFor } = __m["src/data/lateHonorTable.js"];
 const { proDamaFor } = __m["src/data/proDamaTable.js"];
@@ -14856,6 +15085,10 @@ class Game {
     this.waitScale = opts.waitScale !== undefined ? opts.waitScale : waitScaleFor(rules.id);
     // 危険度の補正の重み(src/data/learnedDangerTable.js)。使うのは learnedDanger > 0 のときだけ
     this.learnedDanger = opts.learnedDanger !== undefined ? opts.learnedDanger : learnedDangerFor(rules.id);
+    // 危険度の補正の重み(riichiTileRead の後に掛ける版。src/data/learnedDangerV2Table.js)。使うのは learnedDangerV2 > 0 のときだけ
+    this.learnedDangerV2 = opts.learnedDangerV2 !== undefined ? opts.learnedDangerV2 : learnedDangerV2For(rules.id);
+    // 副露者のロンする割合(役の手掛かり別。src/data/openRonYakuTable.js)。使うのは openRonByYakuSignal > 0 のときだけ
+    this.openRonYaku = opts.openRonYaku !== undefined ? opts.openRonYaku : openRonYakuFor(rules.id);
     // 字牌の危険度の倍率(src/data/lateHonorTable.js)。使うのは lateLiveHonorDanger > 0 のときだけ
     this.lateHonor = opts.lateHonor !== undefined ? opts.lateHonor : lateHonorFor(rules.id);
     // 最初の聴牌のリーチ / ダマの回帰の重み(src/data/proDamaTable.js)。使うのは proDamaModel > 0 のときだけ
@@ -17390,6 +17623,8 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17491,6 +17726,8 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17592,6 +17829,8 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -17693,6 +17932,8 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
             "keitenLate": 1,
             "riichiTileRead": 1,
@@ -17800,6 +18041,8 @@ const GENERATIONS = {
             "outLikelyRiichi": 0,
             "shantenBackRatio": 0,
             "shantenBackGoodRateMax": 0.3,
+            "learnedDangerV2": 0,
+            "openRonByYakuSignal": 0,
             "shapeTierTie": 0,
             "keitenLate": 0,
             "riichiTileRead": 0,
@@ -20266,12 +20509,26 @@ function renderData(app) {
   app.appendChild(el('h1', { text: 'データ集(戦術統計・危険度・成績基準)' }));
   app.appendChild(el('p', { class: 'muted', text: `更新: ${STATS.updated}。本アプリが評価・成績比較に使っている基準値です。公開されている対局データをもとに当アプリ向けに整理した推定値を含み、条件によって変動します。` }));
 
+  function selfPlayKpi() {
+    const g = typeof window !== 'undefined' ? window.__GEN_GAMES?.mleague : null;
+    const latest = GENERATIONS.rules.mleague?.ladder?.at(-1)?.generation;
+    if (g && g.generation === latest) {
+      return el('div', { title: `A/B ${g.runs}本の合計(${g.asOf} まで)` }, [
+        el('span', { class: 'muted small', text: `Gen.${g.generation} の自己対戦(四麻)` }),
+        el('b', { text: `${g.games.toLocaleString()}対局` }),
+      ]);
+    }
+    return el('div', {}, [el('span', { class: 'muted small', text: '校正に使った自己対戦' }), el('b', { text: `${CALIBRATION.kyoku.toLocaleString()}局` })]);
+  }
+
   // 評価エンジンの校正状況(自己対戦で毎月測り直している)
   const cal = el('div', { class: 'card' });
   cal.appendChild(el('h2', { text: '評価エンジンの校正状況' }));
   cal.appendChild(el('div', { class: 'kpi' }, [
     el('div', {}, [el('span', { class: 'muted small', text: '評価エンジン' }), el('b', { text: `v${CALIBRATION.version}` })]),
-    el('div', {}, [el('span', { class: 'muted small', text: '校正に使った自己対戦' }), el('b', { text: `${CALIBRATION.kyoku.toLocaleString()}局` })]),
+    // 公開版は、最新の世代で打った自己対戦の対局数(A/B の記録の合計)を出す(tools/make-pages.mjs が差し込む)。
+    // 無いところ(手元・Artifact)では、従来どおり校正に使った局数
+    selfPlayKpi(),
     ...Object.entries(GENERATIONS.rules).map(([rule, g]) => el('div', {}, [
       el('span', { class: 'muted small', text: `AI世代(${rule === 'kansai3' ? '三麻' : '四麻'})` }),
       // 評価エンジンは常に最新の世代(人の決定 2026-10-03)。控えの欄ではなく、世代の階段のいちばん上を出す
@@ -20420,7 +20677,7 @@ const { store, persist } = __m["src/ui/store.js"];
 const { kindToName, parseHand, toCounts } = __m["src/core/tiles.js"];
 const { THEMES, KINDS } = __m["src/core/problemGen.js"];
 const { PASS, createSession, nextProblem, gradeChoice, gradeFacts, record, state, levelFor, THEME_SKILL } = __m["src/core/drill.js"];
-const { diagnose } = __m["src/core/diagnose.js"];
+const { diagnose, pickTop } = __m["src/core/diagnose.js"];
 const WINDS = ['東', '南', '西', '北'];
 
 function renderWeakness(app, rest = []) {
@@ -20454,7 +20711,7 @@ function renderWeakness(app, rest = []) {
     if (!store.pro) { root.appendChild(gateCard()); return; }
 
     const d = diagnose(store.skills || {});
-    const weak = d.ready[0] || null;
+    const weak = pickTop(d);
     root.appendChild(el('p', { class: 'muted small', text: `同じテーマの問題を${PASS.questions}問。${PASS.needed}問以上で合格です。受け直すたびに問題は作り直します。` }));
 
     for (const t of Object.values(THEMES)) {
@@ -20742,7 +20999,7 @@ __m["src/ui/views/curriculum.js"] = (function () {
 const { el } = __m["src/ui/tiles.js"];
 const { store } = __m["src/ui/store.js"];
 const { CURRICULUM, lossAt } = __m["src/data/curriculum.js"];
-const { diagnose } = __m["src/core/diagnose.js"];
+const { diagnose, pickTop, levelText } = __m["src/core/diagnose.js"];
 const { SKILL_TESTS } = __m["src/core/skillMeter.js"];
 const { linkFor } = __m["src/ui/links.js"];
 // 章の並び。**易しい順ではなく、身に付ける順。**
@@ -20766,7 +21023,7 @@ function renderCurriculum(app) {
   for (const r of d.ready) level.set(r.id, r);
   const pending = new Set(d.pending.map((r) => r.id));
   const skipped = new Map(d.skipped.map((r) => [r.id, r]));
-  const top = d.ready[0];
+  const top = pickTop(d);
 
   let chapter = 0;
   for (const g of GROUP_ORDER) {
@@ -20802,7 +21059,7 @@ function row(skill, measured, isPending, isSkipped, top) {
     const pct = Math.round(measured.level * 100);
     box.appendChild(el('div', { class: 'progress' }, [el('div', { style: `width:${pct}%` })]));
     box.appendChild(el('div', { class: 'small' }, [
-      el('b', { text: `習熟度 ${pct}%` }),
+      el('b', { text: `習熟度 ${levelText(measured)}` }),
       el('span', { class: 'muted', text: ` ／ 直せば1半荘あたり ${measured.upsideLo.toFixed(1)}〜${measured.upsideHi.toFixed(1)}点` }),
     ]));
   } else if (isPending) {
